@@ -1,0 +1,76 @@
+services:
+  # MLflow Tracking Server
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.9.2
+    container_name: mlflow-server
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./mlflow:/mlflow
+    command: >
+      mlflow server
+      --backend-store-uri sqlite:///mlflow/mlflow.db
+      --default-artifact-root /mlflow/artifacts
+      --host 0.0.0.0
+      --port 5000
+    networks:
+      - mlops-network
+    # healthcheck:
+    #   test: ["CMD-SHELL", "curl -f http://localhost:5000 || exit 1"]
+    #   interval: 30s
+    #   timeout: 10s
+    #   retries: 5
+    #   start_period: 10s
+
+  # Training Service (NEW - Phase 2 requirement)
+  trainer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: model-trainer
+    volumes:
+      - ./data:/app/data
+      - ./mlflow:/mlflow
+      - ./models:/app/models
+    environment:
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+    # depends_on:
+    #   mlflow:
+    #     condition: service_healthy
+    networks:
+      - mlops-network
+    command: python src/train_model_mlflow.py
+    # Run once and exit (not a long-running service)
+    restart: "no"
+
+  # API Service
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: credit-risk-api
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./mlflow:/mlflow
+      - ./models:/app/models  # Fallback only
+    environment:
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+      - ENVIRONMENT=production
+    # depends_on:
+    #   mlflow:
+    #     condition: service_healthy
+    networks:
+      - mlops-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    command: uvicorn src.api_mlflow:app --host 0.0.0.0 --port 8000
+
+networks:
+  mlops-network:
+    driver: bridge
