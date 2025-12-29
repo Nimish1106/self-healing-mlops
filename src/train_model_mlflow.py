@@ -202,7 +202,7 @@ def main():
     data_path = "/app/data/cs-training.csv"
     print(f"\n📁 Loading data from: {data_path}")
     
-    df = pd.read_csv(data_path, index_col=0)
+    df = pd.read_csv(data_path)
     print(f"   Dataset shape: {df.shape}")
     
     # --- COMPUTE DATASET FINGERPRINT ---

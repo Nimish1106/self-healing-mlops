@@ -1,0 +1,31 @@
+{
+  "timestamp": "2025-12-29T13:55:35.063644",
+  "reference_metadata": {
+    "created_at": "2025-12-29T13:14:48.108883",
+    "source": "training_test_split",
+    "num_samples": 30000,
+    "num_features": 12,
+    "reference_hash": "3c7679fc25aa259635e06d44ec069dc8a018cddb53101eedee55f258520e6067",
+    "purpose": "frozen_baseline_for_drift_detection",
+    "mutation_policy": "NEVER - reference is immutable",
+    "features": [
+      "Unnamed: 0",
+      "SeriousDlqin2yrs",
+      "RevolvingUtilizationOfUnsecuredLines",
+      "age",
+      "NumberOfTime30_59DaysPastDueNotWorse",
+      "DebtRatio",
+      "MonthlyIncome",
+      "NumberOfOpenCreditLinesAndLoans",
+      "NumberOfTimes90DaysLate",
+      "NumberRealEstateLoansOrLines",
+      "NumberOfTime60_89DaysPastDueNotWorse",
+      "NumberOfDependents"
+    ]
+  },
+  "dataset_drift_detected": true,
+  "drift_share": 0.5,
+  "num_drifted_features": 7,
+  "num_features_total": 10,
+  "feature_drift_details": []
+}

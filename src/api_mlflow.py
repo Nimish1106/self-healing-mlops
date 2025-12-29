@@ -1,6 +1,15 @@
 """
-Production API - Loads ONLY the Production model.
-Logs predictions for future drift detection.
+Production API with prediction logging for Phase 3 monitoring.
+
+PHASE 3 RESPONSIBILITIES:
+- Serve predictions from Production model
+- Log predictions for monitoring
+- THAT'S IT
+
+NOT RESPONSIBLE FOR:
+- Computing metrics (monitoring job does this)
+- Detecting drift (monitoring job does this)
+- Deciding if model should be retrained (Phase 4)
 """
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
@@ -11,9 +20,17 @@ import os
 from datetime import datetime
 from typing import Optional
 import logging
+import sys
+
+# Add to path
+sys.path.append('/app')
+from src.storage.prediction_logger import get_prediction_logger
 
 # Configure logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
 
 # MLflow configuration
@@ -24,24 +41,30 @@ MODEL_NAME = "credit-risk-model"
 PRODUCTION_STAGE = "Production"
 
 app = FastAPI(
-    title="Credit Risk Prediction API",
-    description="Self-Healing MLOps Pipeline - Phase 2",
-    version="2.0.0"
+    title="Credit Risk Prediction API (Phase 3)",
+    description="Self-Healing MLOps Pipeline - Monitoring-Enabled API",
+    version="3.0.0"
 )
 
 # Global state
 model = None
 model_version = None
 model_uri = None
+prediction_logger = None
 
 
 class PredictionInput(BaseModel):
-    """Input schema."""
+    """
+    Input schema for predictions.
+    
+    Pydantic handles validation automatically.
+    Invalid inputs are rejected before reaching our code.
+    """
     RevolvingUtilizationOfUnsecuredLines: float
-    age: int = Field(..., ge=18, le=120)
+    age: int = Field(..., ge=18, le=120, description="Age must be 18-120")
     NumberOfTime30_59DaysPastDueNotWorse: int = Field(..., ge=0)
     DebtRatio: float
-    MonthlyIncome: float = Field(..., ge=0)
+    MonthlyIncome: float = Field(..., ge=0, description="Monthly income must be positive")
     NumberOfOpenCreditLinesAndLoans: int = Field(..., ge=0)
     NumberOfTimes90DaysLate: int = Field(..., ge=0)
     NumberRealEstateLoansOrLines: int = Field(..., ge=0)
@@ -66,27 +89,40 @@ class PredictionInput(BaseModel):
 
 
 class PredictionOutput(BaseModel):
-    """Output schema."""
-    prediction: int
-    probability: float
-    model_version: str
-    timestamp: str
+    """
+    Output schema for predictions.
+    
+    Phase 3: We return prediction + metadata.
+    We do NOT return confidence scores (those imply calibration we haven't validated).
+    """
+    prediction: int = Field(..., description="0=no default risk, 1=default risk")
+    probability: float = Field(..., ge=0.0, le=1.0, description="Probability of default")
+    model_version: str = Field(..., description="Model version used for this prediction")
+    prediction_id: str = Field(..., description="Unique ID for tracking this prediction")
+    timestamp: str = Field(..., description="ISO timestamp of prediction")
+
+
+class HealthResponse(BaseModel):
+    """Health check response."""
+    status: str
+    model_loaded: bool
+    model_version: Optional[str]
+    model_stage: str
+    predictions_logged: int
+    message: Optional[str] = None
 
 
 def load_production_model():
     """
-    Load ONLY the Production model from MLflow Registry.
+    Load Production model from MLflow Registry.
     
-    Phase 2 Rule: Simple and strict.
-    No fallbacks, no guessing, no "latest".
+    Phase 2 contract: Only load Production models.
     If no Production model exists, API should not start.
     """
     global model, model_version, model_uri
     
     try:
-        # Get Production model
         model_uri = f"models:/{MODEL_NAME}/{PRODUCTION_STAGE}"
-        
         logger.info(f"Loading model: {model_uri}")
         model = mlflow.sklearn.load_model(model_uri)
         
@@ -98,7 +134,6 @@ def load_production_model():
             raise ValueError(f"No model in {PRODUCTION_STAGE} stage")
         
         model_version = versions[0].version
-        
         logger.info(f"✅ Loaded model version {model_version} from {PRODUCTION_STAGE}")
         
     except Exception as e:
@@ -109,63 +144,79 @@ def load_production_model():
         )
 
 
-def log_prediction(input_data: dict, prediction: int, probability: float):
-    """
-    Log prediction for future drift detection.
-    
-    Phase 2: Minimal logging (just predictions).
-    Phase 3: Will add drift detection on this data.
-    """
-    try:
-        # Log to MLflow
-        with mlflow.start_run(run_name=f"prediction_{datetime.now().strftime('%Y%m%d_%H%M%S')}"):
-            mlflow.log_param("model_version", model_version)
-            mlflow.log_metric("prediction", prediction)
-            mlflow.log_metric("probability", probability)
-            
-            # Log input features as params (simplified)
-            for key, value in input_data.items():
-                mlflow.log_param(f"input_{key}", value)
-    
-    except Exception as e:
-        # Don't fail predictions if logging fails
-        logger.warning(f"Prediction logging failed: {e}")
-
-
 @app.on_event("startup")
 async def startup_event():
-    """Load Production model on startup."""
-    logger.info("🚀 Starting API...")
+    """Initialize API on startup."""
+    global prediction_logger
+    
+    logger.info("=" * 70)
+    logger.info("API STARTING UP")
+    logger.info("=" * 70)
+    
+    # Load model
     load_production_model()
-    logger.info("✨ API ready!")
+    
+    # Initialize prediction logger
+    prediction_logger = get_prediction_logger()
+    logger.info("✅ Prediction logger initialized")
+    
+    logger.info("=" * 70)
+    logger.info("API READY")
+    logger.info("=" * 70)
 
 
-@app.get("/")
+@app.get("/", response_model=dict)
 async def root():
-    """Health check."""
+    """
+    Root endpoint - basic health check.
+    """
     return {
-        "status": "healthy",
         "service": "Credit Risk Prediction API",
-        "model_version": model_version,
-        "model_stage": PRODUCTION_STAGE
+        "version": "3.0.0",
+        "phase": "3 - Monitoring",
+        "status": "healthy",
+        "model_version": model_version
     }
 
 
-@app.get("/health")
+@app.get("/health", response_model=HealthResponse)
 async def health():
-    """Detailed health check."""
-    return {
-        "status": "healthy" if model is not None else "unhealthy",
-        "model_loaded": model is not None,
-        "model_version": model_version,
-        "model_stage": PRODUCTION_STAGE,
-        "mlflow_uri": MLFLOW_TRACKING_URI
-    }
+    """
+    Detailed health check.
+    
+    Used by Docker health checks and load balancers.
+    """
+    # Count predictions (read from file)
+    predictions_count = 0
+    try:
+        import pandas as pd
+        from pathlib import Path
+        pred_file = Path("/app/monitoring/predictions/predictions.csv")
+        if pred_file.exists():
+            df = pd.read_csv(pred_file)
+            predictions_count = len(df)
+    except Exception as e:
+        logger.warning(f"Could not count predictions: {e}")
+    
+    is_healthy = model is not None
+    
+    return HealthResponse(
+        status="healthy" if is_healthy else "unhealthy",
+        model_loaded=is_healthy,
+        model_version=model_version,
+        model_stage=PRODUCTION_STAGE,
+        predictions_logged=predictions_count,
+        message=None if is_healthy else "Model not loaded"
+    )
 
 
 @app.get("/model/info")
 async def model_info():
-    """Get current model information."""
+    """
+    Get current model information.
+    
+    Useful for debugging and monitoring which model is serving.
+    """
     if model is None:
         raise HTTPException(status_code=503, detail="Model not loaded")
     
@@ -184,20 +235,35 @@ async def model_info():
             "last_updated_timestamp": version_info.last_updated_timestamp
         }
     
-    return {"model_version": model_version, "model_stage": PRODUCTION_STAGE}
+    return {
+        "model_name": MODEL_NAME,
+        "model_version": model_version,
+        "model_stage": PRODUCTION_STAGE
+    }
 
 
 @app.post("/predict", response_model=PredictionOutput)
 async def predict(input_data: PredictionInput):
     """
-    Make prediction using Production model.
-    Logs prediction for future drift detection.
+    Make prediction and log for monitoring.
+    
+    PHASE 3 BEHAVIOR:
+    1. Make prediction
+    2. Log prediction (for monitoring job to analyze later)
+    3. Return result
+    
+    We do NOT:
+    - Compute metrics here
+    - Check for drift here
+    - Decide if model should be retrained
+    
+    Those are monitoring job responsibilities.
     """
     if model is None:
         raise HTTPException(status_code=503, detail="Model not loaded")
     
     try:
-        # Prepare features
+        # Prepare features (must match training order)
         features = np.array([[
             input_data.RevolvingUtilizationOfUnsecuredLines,
             input_data.age,
@@ -215,19 +281,88 @@ async def predict(input_data: PredictionInput):
         prediction = int(model.predict(features)[0])
         probability = float(model.predict_proba(features)[0, 1])
         
-        # Log prediction (async - don't block response)
-        log_prediction(input_data.dict(), prediction, probability)
+        # Generate prediction ID
+        timestamp_str = datetime.now().strftime('%Y%m%d_%H%M%S_%f')
+        prediction_id = f"pred_{timestamp_str}"
         
+        # Log prediction for monitoring
+        # This is append-only, no analytics here
+        if prediction_logger:
+            try:
+                prediction_logger.log_prediction(
+                    prediction_id=prediction_id,
+                    features=input_data.dict(),
+                    prediction=prediction,
+                    probability=probability,
+                    model_version=str(model_version)
+                )
+            except Exception as e:
+                # Logging failure should not break predictions
+                # But we should know about it
+                logger.error(f"Failed to log prediction {prediction_id}: {e}")
+        
+        # Return result
         return PredictionOutput(
             prediction=prediction,
             probability=probability,
             model_version=str(model_version),
+            prediction_id=prediction_id,
             timestamp=datetime.now().isoformat()
         )
     
     except Exception as e:
-        logger.error(f"Prediction failed: {e}")
-        raise HTTPException(status_code=500, detail=f"Prediction failed: {str(e)}")
+        logger.error(f"Prediction failed: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Prediction failed: {str(e)}"
+        )
+
+
+@app.get("/monitoring/stats")
+async def monitoring_stats():
+    """
+    Get basic monitoring statistics.
+    
+    This is a convenience endpoint for quick checks.
+    Real monitoring happens in the monitoring job.
+    """
+    try:
+        import pandas as pd
+        from pathlib import Path
+        
+        pred_file = Path("/app/monitoring/predictions/predictions.csv")
+        
+        if not pred_file.exists():
+            return {
+                "status": "no_predictions",
+                "message": "No predictions logged yet"
+            }
+        
+        df = pd.read_csv(pred_file)
+        
+        if len(df) == 0:
+            return {
+                "status": "no_predictions",
+                "message": "Prediction log is empty"
+            }
+        
+        # Basic stats
+        recent_100 = df.tail(100)
+        
+        return {
+            "total_predictions": len(df),
+            "recent_100": {
+                "count": len(recent_100),
+                "positive_rate": float(recent_100['prediction'].mean()),
+                "probability_mean": float(recent_100['probability'].mean()),
+                "probability_std": float(recent_100['probability'].std())
+            },
+            "note": "For detailed monitoring, see monitoring job results"
+        }
+    
+    except Exception as e:
+        logger.error(f"Failed to compute stats: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 if __name__ == "__main__":

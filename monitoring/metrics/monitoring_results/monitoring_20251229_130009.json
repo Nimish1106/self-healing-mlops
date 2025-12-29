@@ -1,0 +1,49 @@
+{
+  "timestamp": "2025-12-29T13:00:09.391392",
+  "analysis_window": {
+    "lookback_hours": 24,
+    "start_time": "2025-12-29T12:57:29.369373",
+    "end_time": "2025-12-29T12:59:10.060781",
+    "num_predictions": 250
+  },
+  "proxy_metrics": {
+    "timestamp": "2025-12-29T13:00:09.391639",
+    "overall_stats": {
+      "num_predictions": 250,
+      "positive_rate": 0.0,
+      "probability_mean": 0.31072840103893806,
+      "probability_std": 5.69418019206664e-17,
+      "probability_median": 0.3107284010389381,
+      "probability_q25": 0.310728401038938,
+      "probability_q75": 0.3107284010389381
+    },
+    "entropy": 2.1623265891184476e-08,
+    "time_windowed": {
+      "window_1H": {
+        "count": 250,
+        "positive_rate": 0.0,
+        "probability_mean": 0.31072840103893806,
+        "probability_std": 5.69418019206664e-17,
+        "entropy": 2.1623265891184476e-08
+      },
+      "window_6H": {
+        "count": 250,
+        "positive_rate": 0.0,
+        "probability_mean": 0.31072840103893806,
+        "probability_std": 5.69418019206664e-17,
+        "entropy": 2.1623265891184476e-08
+      },
+      "window_24H": {
+        "count": 250,
+        "positive_rate": 0.0,
+        "probability_mean": 0.31072840103893806,
+        "probability_std": 5.69418019206664e-17,
+        "entropy": 2.1623265891184476e-08
+      }
+    }
+  },
+  "drift_detection": {
+    "status": "error",
+    "error": "\"['NumberOfTime30_59DaysPastDueNotWorse', 'NumberOfTime60_89DaysPastDueNotWorse'] not in index\""
+  }
+}
