@@ -51,6 +51,41 @@ model = None
 model_version = None
 model_uri = None
 prediction_logger = None
+_last_checked_version = None  # Track if we've checked for updates
+
+
+def check_and_reload_model_if_needed():
+    """
+    Check if Production model has changed and reload if needed.
+    
+    This allows the API to pick up new models without restarting.
+    Called before each prediction request.
+    """
+    global model, model_version, _last_checked_version
+    
+    try:
+        client = mlflow.tracking.MlflowClient()
+        versions = client.get_latest_versions(MODEL_NAME, stages=[PRODUCTION_STAGE])
+        
+        if not versions:
+            logger.warning("No model in Production stage")
+            return False
+        
+        latest_version = versions[0].version
+        
+        # Check if version changed
+        if latest_version != _last_checked_version:
+            logger.info(f"Production model updated: v{_last_checked_version} → v{latest_version}")
+            load_production_model()
+            _last_checked_version = latest_version
+            logger.info(f"✅ Reloaded model to v{latest_version}")
+            return True
+        
+        return False
+    
+    except Exception as e:
+        logger.warning(f"Error checking for model updates: {e}")
+        return False
 
 
 class PredictionInput(BaseModel):
@@ -147,7 +182,7 @@ def load_production_model():
 @app.on_event("startup")
 async def startup_event():
     """Initialize API on startup."""
-    global prediction_logger
+    global prediction_logger, _last_checked_version
     
     logger.info("=" * 70)
     logger.info("API STARTING UP")
@@ -155,6 +190,7 @@ async def startup_event():
     
     # Load model
     load_production_model()
+    _last_checked_version = model_version  # Initialize tracking
     
     # Initialize prediction logger
     prediction_logger = get_prediction_logger()
@@ -248,9 +284,10 @@ async def predict(input_data: PredictionInput):
     Make prediction and log for monitoring.
     
     PHASE 3 BEHAVIOR:
-    1. Make prediction
-    2. Log prediction (for monitoring job to analyze later)
-    3. Return result
+    1. Check if Production model has been updated (reload if needed)
+    2. Make prediction
+    3. Log prediction (for monitoring job to analyze later)
+    4. Return result
     
     We do NOT:
     - Compute metrics here
@@ -259,6 +296,9 @@ async def predict(input_data: PredictionInput):
     
     Those are monitoring job responsibilities.
     """
+    # Check if model has been updated and reload if needed
+    check_and_reload_model_if_needed()
+    
     if model is None:
         raise HTTPException(status_code=503, detail="Model not loaded")
     

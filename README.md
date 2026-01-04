@@ -1,388 +1,340 @@
-# 🔍 Phase 3: Monitoring & Drift Detection
+# Self-Healing MLOps: Credit Risk Model with Continuous Monitoring & Retraining
 
-<div align="center">
+A **production-grade ML system** that autonomously detects model degradation, evaluates retraining candidates, and makes promotion decisions—all while maintaining data integrity and fairness constraints.
 
-![Status](https://img.shields.io/badge/Status-Observation--Only-blue?style=for-the-badge)
-![Phase](https://img.shields.io/badge/Phase-3%2F6-orange?style=for-the-badge)
-![MLOps](https://img.shields.io/badge/MLOps-Production--Grade-success?style=for-the-badge)
-
-**Passive monitoring layer with statistical drift detection**
-
-[Quick Start](#-quick-start) • [Architecture](#-architecture) • [Configuration](#-configuration) • [Troubleshooting](#-troubleshooting)
-
-</div>
-
----
-
-## 📋 Table of Contents
-
-- [What's New](#-whats-new-in-phase-3)
-- [Architecture](#-architecture)
-- [Quick Start](#-quick-start)
-- [Key Concepts](#-key-concepts)
-- [Configuration](#-configuration)
-- [Verification](#-verification)
-- [Troubleshooting](#-troubleshooting)
-
----
-
-## ✨ What's New in Phase 3
-
-<table>
-<tr>
-<td width="50%">
-
-### 🎯 Core Components
-
-| Component | Purpose |
-|-----------|---------|
-| 📦 **Frozen Reference** | Immutable baseline for comparison |
-| 📝 **Prediction Logger** | Append-only storage |
-| 📊 **Proxy Metrics** | Label-free trend analysis |
-| 🔬 **Drift Detection** | Statistical tests via Evidently |
-| ⚙️ **Monitoring Job** | Batch analytics processor |
-| ⏰ **Scheduler** | Simple orchestration |
-
-</td>
-<td width="50%">
-
-### 🚫 What Phase 3 Does NOT Do
-
-- ❌ Trigger retraining
-- ❌ Update models
-- ❌ Send alerts
-- ❌ Compute accuracy
-- ❌ Make decisions
-
-<br/>
-
-> **Phase 3 = Observation**  
-> **Phase 4 = Action**
-
-</td>
-</tr>
-</table>
-
----
-
-## 🏗️ Architecture
-
-```mermaid
-graph TD
-    A[User Request] -->|POST /predict| B[API Service]
-    B --> C[Model Prediction]
-    C --> D[Log to CSV]
-    D --> E[Prediction Storage]
-    
-    F[Scheduler] -->|Every 5 min| G[Monitoring Job]
-    G --> E
-    G --> H{Check Sample Count}
-    H -->|< 200| I[Skip Analysis]
-    H -->|≥ 200| J[Run Analytics]
-    
-    J --> K[Proxy Metrics]
-    J --> L[Drift Detection]
-    
-    K --> M[JSON Results]
-    L --> M
-    M --> N[MLflow Logging]
-    M --> O[HTML Reports]
-    
-    style B fill:#4CAF50
-    style G fill:#2196F3
-    style J fill:#FF9800
-    style I fill:#f44336
-```
-
-### 🔄 Data Flow
+## 🎯 Architecture Overview
 
 ```
-┌─────────────┐
-│ User Request│
-└──────┬──────┘
-       ↓
-┌─────────────────────────────────────┐
-│  API: Prediction + Logging          │
-└──────┬──────────────────────────────┘
-       ↓
-┌─────────────────────────────────────┐
-│  predictions.csv (append-only)      │
-└──────┬──────────────────────────────┘
-       ↓
-   [5 minutes]
-       ↓
-┌─────────────────────────────────────┐
-│  Monitoring Job Wake Up             │
-└──────┬──────────────────────────────┘
-       ↓
-┌─────────────────────────────────────┐
-│  Sample Check (≥200?)               │
-└──────┬──────────────────────────────┘
-       ↓
-┌──────────────┬──────────────────────┐
-│ Proxy Metrics│  Drift Detection     │
-└──────┬───────┴──────┬───────────────┘
-       ↓              ↓
-┌──────────────────────────────────────┐
-│  Results: JSON + HTML + MLflow       │
-└──────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                    SELF-HEALING MLOPS PIPELINE                  │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                   │
+│  Phase 1: Training         │  Phase 2: Production Serving        │
+│  • MLflow tracking         │  • FastAPI credit risk API          │
+│  • Model versioning        │  • Prediction logging               │
+│  • Hyperparameter tuning   │  • Label collection                 │
+│                            │                                     │
+├────────────────────────────┼──────────────────────────────────────┤
+│                            │                                      │
+│  Phase 3: Monitoring       │  Phase 4: Decision & Retraining     │
+│  • Drift detection         │  • Evaluation gates                  │
+│  • Proxy metrics           │  • Shadow model training            │
+│  • Evidently reports       │  • Model promotion logic            │
+│                            │  • Cooldown enforcement             │
+│                            │                                      │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
----
+## 🏗️ System Components
+
+### **Phase 1: Model Training** (`src/train_model_mlflow.py`)
+- Baseline model development using scikit-learn
+- Hyperparameter tuning with GridSearchCV
+- MLflow experiment tracking (metrics, params, artifacts)
+- Model versioning with production stage tags
+
+### **Phase 2: Production API** (`src/api_mlflow.py`)
+- FastAPI service serving production model
+- Real-time credit risk predictions (0-1 probability)
+- Prediction logging with timestamps and features
+- Inference telemetry for downstream monitoring
+
+### **Phase 3: Drift Monitoring** (`src/analytics/drift_detection.py`)
+**Evidently v0.4.15 statistical drift detection**
+- **DatasetDriftMetric**: Overall distribution change detection
+- **ColumnDriftMetric**: Feature-level drift using Wasserstein distance
+- Reference baseline (frozen 30K samples from training set)
+- 24-hour lookback window for current data
+- HTML drift reports + JSON summaries with complete feature details
+
+**Drift Summary Structure** (example):
+```json
+{
+  "timestamp": "2026-01-04T09:33:59.180318",
+  "dataset_drift_detected": true,
+  "drift_share": 0.5,
+  "num_drifted_features": 6,
+  "num_features_total": 10,
+  "num_features_evaluated": 10,
+  "excluded_features": [],
+  "features": [
+    {
+      "feature": "MonthlyIncome",
+      "drift_detected": true,
+      "stat_test": "Wasserstein distance (normed)",
+      "drift_score": 0.371,
+      "threshold": 0.1
+    }
+  ]
+}
+```
+
+### **Phase 4: Evaluation Gate & Promotion** (`src/retraining/evaluation_gate.py`)
+**Multi-criteria gate ensuring only safe models are promoted:**
+
+| Gate # | Criterion | Threshold | Purpose |
+|--------|-----------|-----------|---------|
+| 1 | Sufficient samples | ≥200 | Statistical power |
+| 2 | Label coverage | ≥30% | Evaluation validity |
+| 3 | Promotion cooldown | 7 days | Deployment stability |
+| 4 | F1 improvement | ≥2% | Business value |
+| 5 | Calibration maintained | Brier ≤+0.01 | Probability quality |
+| 6 | No segment regression | F1 drop ≤5% | Fairness & safety |
+
+**Decision Logic**: ALL gates must pass → Model promoted to production
+
+## 📊 Data Flow
+
+### Monitoring Pipeline (5-minute intervals)
+```
+Production Model
+    ↓
+Generate Predictions → Log to CSV
+    ↓
+Collect Last 24h Predictions (≈2000)
+    ↓
+Compute Proxy Metrics (coverage, patterns)
+    ↓
+Run Drift Detection (Evidently)
+    ↓
+Evaluate Against Reference Baseline
+    ↓
+[DRIFT DETECTED] → Signal retraining workflow
+    ↓
+Save HTML Report + JSON Summary
+```
+
+### Retraining Pipeline (triggered by drift)
+```
+[Drift Signal] → Trigger Retraining DAG (Airflow)
+    ↓
+Shadow Trainer: Train new model in parallel
+    ↓
+Wait for Labels (24-48h window)
+    ↓
+Evaluation Gate: Run 6-gate validation
+    ↓
+[ALL GATES PASS] → Promote to Production
+[GATE FAILS] → Log rejection + wait
+    ↓
+Update Model Registry + Serve New Version
+```
 
 ## 🚀 Quick Start
 
 ### Prerequisites
+- Docker & Docker Compose
+- Python 3.10
+- Git
 
-<table>
-<tr>
-<td>
-
-**✅ Required**
-- Phase 2 completed
-- Docker Compose
-- Training data ready
-
-</td>
-<td>
-
-**📊 Status Check**
+### Setup & Run
 ```bash
-docker --version
-docker-compose --version
-ls data/cs-training.csv
+# Clone repository
+git clone https://github.com/Nimish1106/self-healing-mlops.git
+cd self-healing-mlops
+
+# Start all services (API, monitoring, MLflow, Airflow)
+docker-compose up -d
+
+# Bootstrap reference data (frozen baseline)
+docker exec reference-bootstrap python scripts/bootstrap_reference.py
+
+# Generate synthetic predictions (for testing)
+docker exec credit-risk-api python scripts/generate_fake_predictions.py
+
+# Monitor logs
+docker logs monitoring-scheduler -f        # Drift detection
+docker logs model-trainer -f               # Retraining
+docker logs credit-risk-api -f            # API predictions
 ```
 
-</td>
-</tr>
-</table>
+### Access Services
+- **API Predictions**: `http://localhost:8000/predict`
+- **MLflow Tracking**: `http://localhost:5000`
+- **Airflow DAGs**: `http://localhost:8080`
+- **Drift Reports**: `/app/monitoring/reports/drift_reports/`
 
-### 🔧 Setup Steps
-
-<details open>
-<summary><b>Step 1: Clean Start (Optional)</b></summary>
-
-```bash
-# Remove old data
-docker-compose down -v
-rm -rf mlflow/ monitoring/
-
-# Create fresh directories
-mkdir -p monitoring/{predictions,reference,metrics,reports}
-```
-
-</details>
-
-<details open>
-<summary><b>Step 2: Initialize Infrastructure</b></summary>
-
-```bash
-# Start MLflow
-docker-compose up -d mlflow
-sleep 10
-
-# Bootstrap reference data (⚠️ ONE-TIME operation)
-docker-compose run --rm bootstrap
-```
-
-**Expected Output:**
-```
-✅ Saved reference data: /app/monitoring/reference/reference_data.csv
-✅ Saved metadata: /app/monitoring/reference/reference_metadata.json
-```
-
-</details>
-
-<details open>
-<summary><b>Step 3: Train & Deploy Model</b></summary>
-
-```bash
-# Train model
-docker-compose up trainer
-
-# Verify in MLflow UI
-open http://localhost:5000
-```
-
-📝 **Manual Step**: Promote model to Production in MLflow UI  
-`Models → credit-risk-model → Version X → Transition to Production`
-
-</details>
-
-<details open>
-<summary><b>Step 4: Start Services</b></summary>
-
-```bash
-# Start API + Monitoring
-docker-compose up -d api monitoring
-
-# Verify all services running
-docker-compose ps
-```
-
-**Expected:**
-```
-NAME                    STATUS
-mlflow-server          Up (healthy)
-credit-risk-api        Up (healthy)
-monitoring-scheduler   Up
-```
-
-</details>
-
-<details open>
-<summary><b>Step 5: Generate Test Data</b></summary>
-
-```bash
-# Generate 250 predictions (need 200+ for analysis)
-for i in {1..250}; do
-  curl -s -X POST http://localhost:8000/predict \
-    -H "Content-Type: application/json" \
-    -d '{
-      "RevolvingUtilizationOfUnsecuredLines": 0.766127,
-      "age": 45,
-      "NumberOfTime30_59DaysPastDueNotWorse": 2,
-      "DebtRatio": 0.802982,
-      "MonthlyIncome": 9120.0,
-      "NumberOfOpenCreditLinesAndLoans": 13,
-      "NumberOfTimes90DaysLate": 0,
-      "NumberRealEstateLoansOrLines": 6,
-      "NumberOfTime60_89DaysPastDueNotWorse": 0,
-      "NumberOfDependents": 2
-    }' > /dev/null
-  echo -ne "Progress: $i/250\r"
-done
-echo -e "\n✅ Generated 250 predictions"
-```
-
-</details>
-
-<details open>
-<summary><b>Step 6: View Results</b></summary>
-
-```bash
-# Wait 5 minutes OR force immediate run
-docker-compose exec monitoring python src/monitoring/monitoring_job.py
-
-# Check results
-ls monitoring/metrics/monitoring_results/
-ls monitoring/reports/drift_reports/
-
-# Pretty-print latest result
-ls -t monitoring/metrics/monitoring_results/*.json | head -1 | xargs cat | jq '.'
-```
-
-</details>
-
----
-
-## 📂 Project Structure
+## 📁 Directory Structure
 
 ```
 self-healing-mlops/
+├── src/
+│   ├── api_mlflow.py                  # FastAPI service
+│   ├── train_model_mlflow.py           # Training entrypoint
+│   ├── analytics/
+│   │   ├── drift_detection.py          # Phase 3: Evidently drift
+│   │   ├── drift_signals.py            # Drift → retraining decision
+│   │   ├── model_evaluator.py          # Shadow model evaluation
+│   │   └── proxy_metrics.py            # Coverage, patterns
+│   ├── monitoring/
+│   │   └── monitoring_job.py           # 5-min scheduler
+│   ├── retraining/
+│   │   ├── evaluation_gate.py          # Phase 4: 6-gate validation
+│   │   ├── shadow_trainer.py           # Parallel training
+│   │   └── model_promoter.py           # Registry updates
+│   ├── storage/
+│   │   ├── prediction_logger.py        # CSV logging
+│   │   └── label_store.py              # Label collection
+│   └── utils/
+│       ├── temporal_utils.py           # Time windows
+│       └── dataset_fingerprint.py      # Data integrity
 │
-├── 🌐 src/
-│   ├── api_mlflow.py                    # Prediction API
-│   │
-│   ├── 💾 storage/
-│   │   └── prediction_logger.py         # Append-only logging
-│   │
-│   ├── 📊 analytics/
-│   │   ├── proxy_metrics.py             # Trend analysis
-│   │   └── drift_detection.py           # Evidently wrapper
-│   │
-│   ├── 🔍 monitoring/
-│   │   └── monitoring_job.py            # Batch processor
-│   │
-│   └── ⏰ orchestration/
-│       └── scheduler.py                 # Job scheduler
+├── airflow/
+│   └── dags/
+│       └── retraining_pipeline.py      # Orchestration DAG
 │
-├── 🔧 scripts/
-│   └── bootstrap_reference.py           # Reference data creator
+├── scripts/
+│   ├── bootstrap_reference.py          # Freeze baseline
+│   ├── generate_fake_predictions.py    # Testing data
+│   ├── simulate_traffic.py             # Load simulation
+│   └── run_retraining_workflow.py      # Manual trigger
 │
-├── 📁 monitoring/
-│   ├── 📦 reference/                    # IMMUTABLE
-│   │   ├── reference_data.csv
-│   │   └── reference_metadata.json
-│   │
-│   ├── 📝 predictions/                  # Append-only
-│   │   └── predictions.csv
-│   │
-│   ├── 📈 metrics/                      # Analysis results
-│   │   └── monitoring_results/
-│   │
-│   └── 📄 reports/                      # Evidently HTML
-│       └── drift_reports/
+├── monitoring/
+│   ├── reference/                      # Frozen baseline
+│   ├── predictions/                    # Production logs
+│   ├── labels/                         # True outcomes
+│   ├── metrics/                        # Evaluation results
+│   └── reports/                        # Drift reports (HTML + JSON)
 │
-└── 🐳 docker-compose.yml
+├── docker-compose.yml                 # Multi-service orchestration
+├── Dockerfile                         # Main app image
+└── Dockerfile.airflow                 # Airflow-specific image
 ```
 
+## 🔍 Key Design Decisions
+
+### 1. **Drift Detection: Distribution, Not Performance**
+- Evidently detects **IF** distributions changed
+- Does NOT evaluate **IF** model performance degraded
+- Drift ≠ model failure (must wait for labels)
+- Prevents reactive retraining on transient shifts
+
+### 2. **Evaluation Gate: All-or-Nothing**
+- Every gate acts as a circuit breaker
+- Single failure → entire promotion blocked
+- Rejection is **successful** system behavior
+- No partial promotions or A/B testing
+
+### 3. **Promotion Cooldown: Stability Over Optimization**
+- 7-day minimum between promotions
+- Prevents retraining storms
+- Allows time to detect real-world issues
+- Authority: EvaluationGate only (ModelPromoter trusted)
+
+### 4. **Label Coverage: Practical Evaluation**
+- Only ~30% of predictions get labels in 24h
+- Minimum 30% coverage required for gate passage
+- Balances waiting time vs. decision confidence
+- Fail-closed if coverage_stats missing
+
+### 5. **Segment Fairness: Explicit Checking**
+- Feature → segment → performance tracked
+- Detects if new model hurts minority groups
+- ±5% F1 drop tolerance per segment
+- Non-blocking for missing segments (insufficient data)
+
+## 📈 Monitoring & Observability
+
+### Drift Summary Files
+Location: `/app/monitoring/reports/drift_reports/`
+- `drift_summary_YYYYMMDD_HHMMSS.json` - Machine-readable summary
+- `drift_report_YYYYMMDD_HHMMSS.html` - Visual Evidently report
+
+### Decision Records
+Location: `/app/monitoring/retraining/decisions/`
+- `decision_*.json` - Gate pass/fail records
+- Contains: timestamp, all gate results, final decision, reason
+
+### Monitoring Results
+Location: `/app/monitoring/metrics/monitoring_results/`
+- `monitoring_YYYYMMDD_HHMMSS.json` - Aggregated metrics
+- Proxy coverage, feature statistics, data freshness
+
+## 🧪 Testing & Validation
+
+### Generate Test Predictions
+```bash
+docker exec credit-risk-api python scripts/generate_fake_predictions.py
+```
+
+### Simulate Traffic
+```bash
+docker exec credit-risk-api python scripts/simulate_traffic.py --duration=3600
+```
+
+### Trigger Retraining Manually
+```bash
+docker exec model-trainer python scripts/run_retraining_workflow.py
+```
+
+## 📊 Implementation Metrics
+
+| Component | Technology | Version |
+|-----------|-----------|---------|
+| Drift Detection | Evidently | 0.4.15 |
+| ML Framework | scikit-learn | 1.3.2 |
+| Feature Encoding | Categorical Encoding | 2.6.1 |
+| Web Framework | FastAPI | 0.109.2 |
+| Orchestration | Airflow | 2.7.3 |
+| Model Registry | MLflow | 2.14.1 |
+| Containerization | Docker | 27.x |
+| Database | PostgreSQL | 15 |
+
+## 🛡️ Safety & Correctness
+
+- ✅ **Phase 3 Complete**: Full drift detection with feature-level details
+- ✅ **Phase 4 Complete**: 6-gate evaluation with cooldown enforcement
+- ✅ **Reference Immutability**: Frozen baseline never modified
+- ✅ **Fail-Closed Gating**: Missing data → rejection, not bypass
+- ✅ **Audit Trail**: All decisions logged with timestamps & rationale
+- ✅ **Docker Isolation**: Clean layer builds, no cached code issues
+
+## 🚦 Deployment Readiness
+
+- [x] Code quality: Comprehensive logging & error handling
+- [x] Testing: Docker builds without cache, services verified working
+- [x] Documentation: README, inline comments, decision rationale
+- [x] Configuration: All paths, thresholds, intervals configurable
+- [x] Monitoring: Full observability with JSON logs & HTML reports
+- [x] Git history: Clean commits with feature branches
+
+## 📝 Recent Fixes (Phase 4)
+
+### Critical Issue: Drift Summary Structure
+**Problem**: JSON files missing feature-level details
+- Old code: Only `drift_share`, `num_drifted_features`
+- Expected: Complete feature array with drift scores, p-values
+
+**Solution**: 
+- Added `ColumnDriftMetric` for each feature
+- Proper extraction from Evidently report structure
+- Complete JSON with 10 required fields
+
+**Validation**:
+```bash
+$ docker logs monitoring-scheduler 2>&1 | grep "Features array"
+Drift summary | dataset_drift=True | drift_share=50.00% | drifted=6/10 evaluated (0 excluded)
+Features array length: 10
+✅ Drift summary structure is complete
+```
+
+## 🔗 Related Documentation
+
+- **Phase 1**: Baseline model training & development
+- **Phase 2**: Production API & prediction logging  
+- **Phase 3**: Drift detection using Evidently
+- **Phase 4**: Evaluation gates & model promotion (this phase)
+
+## 📞 Support
+
+For issues or questions:
+1. Check Docker logs: `docker-compose logs [service-name]`
+2. Review drift reports: `/monitoring/reports/drift_reports/`
+3. Check decision records: `/monitoring/retraining/decisions/`
+4. Verify monitoring metrics: `/monitoring/metrics/monitoring_results/`
+
 ---
 
-
-## 🎯 Success Criteria
-
-<div align="center">
-
-### Phase 3 Complete When:
-
-</div>
-
-<table>
-<tr>
-<td>
-
-- [x] 📦 Reference data created & verified
-- [x] 🎯 Model in Production stage
-- [x] 📝 API logs predictions to CSV
-- [x] 💯 200+ predictions accumulated
-- [x] ⚙️ Monitoring job runs without errors
-
-</td>
-<td>
-
-- [x] 📊 Results appear in `metrics/`
-- [x] 📄 Drift reports in `reports/`
-- [x] ℹ️ INFO-level logs (no warnings)
-- [x] 🔒 Reference integrity verified
-- [x] 🌐 All services healthy
-
-</td>
-</tr>
-</table>
-
----
-
-## 🔜 What's Next?
-
-<div align="center">
-
-### Phase 4: Automated Retraining Pipeline
-
-**Coming Soon:**
-- 🏷️ Delayed label handling
-- 🎭 Shadow model training
-- ✅ Evaluation gates (retrain decision logic)
-- 🚀 Automated model promotion
-- 🔄 Self-healing loop completion
-
-</div>
-
----
-
-<div align="center">
-
-### 🏗️ Phase 3 Complete!
-
-**You've built a production-grade monitoring foundation.**
-
-Phase 3 establishes **observability infrastructure**.  
-Phase 4 adds **automated decision-making**.
-
----
-
-**Built with discipline** • **Deployed with confidence** • **Monitored with precision**
-
-[![Made with ❤️](https://img.shields.io/badge/Made%20with-❤️-red?style=for-the-badge)](https://github.com/yourusername)
-
-</div>
+**Status**: ✅ Phase 4 Complete & Ready for Production  
+**Last Updated**: 2026-01-04  
+**Branch**: `phase-4-mlops`

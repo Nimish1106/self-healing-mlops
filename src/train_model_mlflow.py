@@ -44,7 +44,7 @@ def prepare_data(df: pd.DataFrame) -> tuple:
     
     # Separate target
     target_col = 'SeriousDlqin2yrs'
-    X = df_clean.drop(columns=[target_col])
+    X = df_clean.drop(columns=[df_clean.columns[0], target_col])
     y = df_clean[target_col]
     
     # Keep only numeric features
@@ -199,7 +199,7 @@ def main():
     print("=" * 60)
     
     # --- LOAD DATA ---
-    data_path = "/app/data/cs-training.csv"
+    data_path = "/app/data/raw/cs-training.csv"
     print(f"\n📁 Loading data from: {data_path}")
     
     df = pd.read_csv(data_path)
