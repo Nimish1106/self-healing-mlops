@@ -41,9 +41,7 @@ def check_retraining_needed(**context):
     3. ✅ DRIFT SIGNALS DETECTED? (Phase 3 integration)
     
     Triggers:
-      - DRIFT: Drift threshold exceeded → URGENT retraining
       - SCHEDULED: Weekly run + sufficient data → ROUTINE retraining
-      - SKIP: Neither condition met
     
     Returns:
         'train_shadow_model' or 'skip_retraining'
@@ -51,6 +49,7 @@ def check_retraining_needed(**context):
     from src.storage.prediction_logger import get_prediction_logger
     from src.storage.label_store import get_label_store
     from src.analytics.drift_signals import DriftSignalChecker  # ✅ NEW
+    from src.storage.repositories import RetrainingDecisionsRepository  # ✅ MOVED HERE
     
     logger.info("=" * 80)
     logger.info("CHECKING RETRAINING CONDITIONS")
@@ -165,6 +164,46 @@ def check_retraining_needed(**context):
         logger.info(f"  - Sufficient data: {has_sufficient_data}")
         logger.info("Will retry on next scheduled run or when drift exceeds threshold.")
         logger.info("=" * 80)
+        
+        # In check_retraining_needed(), at the end, BEFORE return statement:
+        # ============================================================
+        # ✅ NEW: Log decision to database
+        # ============================================================
+        try:
+            decisions_repo = RetrainingDecisionsRepository()
+            
+            decision_action = 'train' if has_sufficient_data else 'skip'
+            
+            decisions_repo.insert(
+                timestamp=pd.Timestamp.now(),
+                trigger_reason='scheduled',  # No auto-drift trigger
+                action=decision_action,
+                drift_context={
+                    'feature_drift_ratio': drift_details.get('drift_share', 0.0),  # ✅ RENAMED
+                    'num_drifted_features': len(drift_details.get('drifted_feature_names', [])),
+                    'dataset_drift_detected': drift_detected,
+                    'drifted_features': drift_details.get('drifted_feature_names', [])
+                },
+                data_context={
+                    'labeled_samples': coverage['labeled_predictions'],
+                    'coverage_pct': coverage['coverage_rate'] * 100
+                },
+                decision_details={
+                    'reason': 'Insufficient data' if not has_sufficient_data else 'Proceeding with training',
+                    'shadow_model_version': None,
+                    'production_model_version': None
+                }
+            )
+            
+            logger.info("✅ Decision logged to database")
+        
+        except Exception as e:
+            logger.warning(f"Decision logging failed (non-critical): {e}")
+        
+        # Now return
+        if has_sufficient_data:
+            context['task_instance'].xcom_push(key='trigger_reason', value='scheduled')
+            return 'train_shadow_model'
         
         return 'skip_retraining'
         
@@ -400,6 +439,7 @@ def run_evaluation_gate(**context):
         'promote_shadow_model' or 'reject_shadow_model'
     """
     from src.retraining.evaluation_gate import EvaluationGate
+    from src.storage.repositories import RetrainingDecisionsRepository  # ✅ MOVED HERE
     
     logger.info("=" * 80)
     logger.info("RUNNING EVALUATION GATE")
@@ -467,7 +507,36 @@ def run_evaluation_gate(**context):
             comparison=comparison,
             coverage_stats=coverage_stats
         )
+        # ✅ NEW: Log gate decision to database
+        try:
+            decisions_repo = RetrainingDecisionsRepository()
+            
+            decisions_repo.insert(
+                timestamp=pd.Timestamp.now(),
+                trigger_reason=trigger_reason,
+                action='promote' if should_promote else 'reject',
+                drift_context={
+                    'feature_drift_ratio': drift_details.get('drift_share', 0.0) if drift_details else 0.0,
+                    'num_drifted_features': len(drift_details.get('drifted_feature_names', [])) if drift_details else 0,
+                    'dataset_drift_detected': drift_details is not None and drift_details.get('drift_share', 0) > 0,
+                    'drifted_features': drift_details.get('drifted_feature_names', []) if drift_details else []
+                },
+                data_context=coverage_stats,
+                decision_details={
+                    'reason': '; '.join(decision['reason']),
+                    'failed_gate': decision.get('gate_results', {}).get('failed_gate') if not should_promote else None,
+                    'shadow_model_version': context['task_instance'].xcom_pull(task_ids='train_shadow_model', key='shadow_version'),
+                    'production_model_version': None,  # Will be retrieved during promotion if needed
+                    'f1_improvement_pct': comparison.get('f1_improvement_pct'),
+                    'brier_change': comparison.get('brier_change')
+                }
+            )
+            
+            logger.info("✅ Gate decision logged to database")
         
+        except Exception as e:
+            logger.warning(f"Gate decision logging failed (non-critical): {e}")
+
         # ✅ NEW: Add drift context to decision metadata
         decision['trigger_context'] = {
             'trigger_reason': trigger_reason,

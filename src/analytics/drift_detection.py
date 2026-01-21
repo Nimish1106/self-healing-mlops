@@ -98,7 +98,7 @@ class DriftDetector:
         report = Report(
             metrics=[
                 DatasetDriftMetric(),
-                *[ColumnDriftMetric(column_name=col) for col in self.feature_columns]
+                *[ColumnDriftMetric(column_name=col) for col in self.feature_columns],
             ]
         )
 
@@ -123,10 +123,10 @@ class DriftDetector:
     def _parse_dataset_drift(self, report_dict: Dict) -> Dict:
         """
         Parse DatasetDriftMetric and ColumnDriftMetric output for Evidently v0.4.15.
-        
+
         CRITICAL: Ensure we extract ALL required fields from Evidently output.
         """
-        
+
         logger.info("=" * 80)
         logger.info("PARSING DATASET DRIFT METRIC")
         logger.info("=" * 80)
@@ -164,16 +164,13 @@ class DriftDetector:
 
         # Determine drifted features
         drifted_features = [
-            col for col, info in column_metrics.items() 
-            if info.get("drift_detected", False)
+            col for col, info in column_metrics.items() if info.get("drift_detected", False)
         ]
 
         # Calculate excluded features (in total but not in evaluation)
         total_features = len(self.feature_columns)
         evaluated_features = len(column_metrics)
-        excluded_features = [
-            f for f in self.feature_columns if f not in column_metrics
-        ]
+        excluded_features = [f for f in self.feature_columns if f not in column_metrics]
         num_excluded = len(excluded_features)
 
         logger.info(f"Feature analysis:")
@@ -185,7 +182,6 @@ class DriftDetector:
         summary = {
             "timestamp": datetime.utcnow().isoformat(),
             "reference_metadata": self.reference_metadata,
-
             # Dataset-level statistics
             "dataset_drift_detected": dataset_metric.get("dataset_drift", False),
             "drift_share": dataset_metric.get("drift_share", 0.0),
@@ -194,7 +190,6 @@ class DriftDetector:
             "num_features_evaluated": evaluated_features,
             "num_features_excluded": num_excluded,
             "excluded_features": excluded_features,
-
             # Feature-level statistics
             "features": [],
         }
@@ -203,18 +198,20 @@ class DriftDetector:
         for feature in self.feature_columns:
             if feature in column_metrics:
                 col_result = column_metrics[feature]
-                summary["features"].append({
-                    "feature": feature,
-                    "drift_detected": col_result.get("drift_detected", False),
-                    "stat_test": col_result.get("stattest_name", "unknown"),
-                    "p_value": col_result.get("p_value", None),
-                    "threshold": col_result.get("stattest_threshold", None),
-                    "drift_score": col_result.get("drift_score", None),
-                })
+                summary["features"].append(
+                    {
+                        "feature": feature,
+                        "drift_detected": col_result.get("drift_detected", False),
+                        "stat_test": col_result.get("stattest_name", "unknown"),
+                        "p_value": col_result.get("p_value", None),
+                        "threshold": col_result.get("stattest_threshold", None),
+                        "drift_score": col_result.get("drift_score", None),
+                    }
+                )
 
         logger.info(f"Summary structure keys: {list(summary.keys())}")
         logger.info(f"Features array length: {len(summary['features'])}")
-        
+
         logger.info(
             f"Drift summary | "
             f"dataset_drift={summary['dataset_drift_detected']} | "
@@ -223,7 +220,7 @@ class DriftDetector:
             f"{summary['num_features_evaluated']} evaluated "
             f"({summary['num_features_excluded']} excluded)"
         )
-        
+
         logger.info("=" * 80)
 
         return summary
@@ -264,8 +261,7 @@ def load_reference_data(
 
     if not reference_file.exists():
         raise FileNotFoundError(
-            f"Reference data not found at {reference_file}. "
-            f"Bootstrap reference data first."
+            f"Reference data not found at {reference_file}. " f"Bootstrap reference data first."
         )
 
     df = pd.read_csv(reference_file)
