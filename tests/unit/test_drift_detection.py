@@ -1,0 +1,89 @@
+"""
+Unit tests for drift detection logic.
+
+Tests the core drift detection functionality without external dependencies.
+"""
+import pytest
+import pandas as pd
+import numpy as np
+import sys
+
+sys.path.append("/app")
+from src.analytics.drift_detection import DriftDetector
+
+
+class TestDriftDetector:
+    """Test suite for DriftDetector class."""
+
+    def test_initialization(self, sample_reference_data, feature_columns):
+        """Test DriftDetector initializes correctly."""
+        detector = DriftDetector(
+            reference_data=sample_reference_data, feature_columns=feature_columns
+        )
+
+        assert detector.reference_data is not None
+        assert len(detector.feature_columns) == len(feature_columns)
+        assert len(detector.reference_data) > 0
+
+    def test_no_drift_on_identical_data(self, sample_reference_data, feature_columns):
+        """Test that identical data shows no drift."""
+        detector = DriftDetector(
+            reference_data=sample_reference_data, feature_columns=feature_columns
+        )
+
+        # Test on same data (should show no drift)
+        results = detector.detect_drift(current_data=sample_reference_data, save_report=False)
+
+        assert "dataset_drift_detected" in results
+        # Identical data might still show some drift due to statistical tests
+        # But drift_share should be very low
+        assert results.get("drift_share", 1.0) < 0.3
+
+    def test_drift_on_shifted_data(self, sample_reference_data, feature_columns):
+        """Test drift detection on intentionally shifted data."""
+        detector = DriftDetector(
+            reference_data=sample_reference_data, feature_columns=feature_columns
+        )
+
+        # Create shifted data
+        current_data = sample_reference_data.copy()
+        current_data["MonthlyIncome"] = current_data["MonthlyIncome"] * 1.5  # 50% increase
+        current_data["age"] = current_data["age"] + 10  # Age shift
+
+        results = detector.detect_drift(current_data=current_data, save_report=False)
+
+        # Should detect drift
+        assert "drift_share" in results
+        assert results["num_drifted_features"] > 0
+
+    def test_handles_empty_current_data(self, sample_reference_data, feature_columns):
+        """Test that detector handles empty current data gracefully."""
+        detector = DriftDetector(
+            reference_data=sample_reference_data, feature_columns=feature_columns
+        )
+
+        empty_df = pd.DataFrame(columns=feature_columns)
+        results = detector.detect_drift(current_data=empty_df, save_report=False)
+
+        assert results.get("status") == "no_data"
+
+    def test_feature_drift_details(self, sample_reference_data, feature_columns):
+        """Test that per-feature drift details are included."""
+        detector = DriftDetector(
+            reference_data=sample_reference_data, feature_columns=feature_columns
+        )
+
+        # Create data with drift in specific features
+        current_data = sample_reference_data.copy()
+        current_data["MonthlyIncome"] = current_data["MonthlyIncome"] * 2
+
+        results = detector.detect_drift(current_data=current_data, save_report=False)
+
+        assert "feature_drift_details" in results
+        assert len(results["feature_drift_details"]) > 0
+
+        # Check structure of drift details
+        for detail in results["feature_drift_details"]:
+            assert "feature" in detail
+            assert "drift_detected" in detail
+            assert "stat_test" in detail
