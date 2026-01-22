@@ -702,6 +702,6 @@ docker push myregistry.azurecr.io/self-healing-mlops:latest
 
 ---
 
-**Version:** 1.0  
-**Last Updated:** January 2024  
+**Version:** 1.0
+**Last Updated:** January 2024
 **Status:** Complete

@@ -113,7 +113,7 @@ class MonitoringMetricsRepository:
         ✅ FIXED: SQL INTERVAL parameterization bug
         """
         query = """
-        SELECT 
+        SELECT
             timestamp,
             feature_drift_ratio,
             num_drifted_features,
@@ -286,7 +286,7 @@ class ModelVersionsRepository:
         ) VALUES (
             %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
         )
-        ON CONFLICT (model_name, version) 
+        ON CONFLICT (model_name, version)
         DO UPDATE SET
             stage = EXCLUDED.stage,
             promoted_at = EXCLUDED.promoted_at,

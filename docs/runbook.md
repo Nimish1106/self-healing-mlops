@@ -367,6 +367,6 @@ tar -czf exports/drift_reports_$(date +%Y%m%d).tar.gz \
 
 ---
 
-**Last Updated:** January 2024  
-**Owner:** MLOps Team  
+**Last Updated:** January 2024
+**Owner:** MLOps Team
 **Review Cycle:** Monthly

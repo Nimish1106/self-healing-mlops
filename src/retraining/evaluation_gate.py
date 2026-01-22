@@ -13,6 +13,7 @@ from datetime import datetime, timedelta
 from typing import Dict, Tuple, List
 import json
 import logging
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -98,12 +99,13 @@ class EvaluationGate:
         logger.info("RUNNING EVALUATION GATE")
         logger.info("=" * 80)
 
-        decision = {
+        decision: Dict[str, Any] = {
             "timestamp": pd.Timestamp.now().isoformat(),
             "gate_results": {},
             "final_decision": False,
             "reason": [],
         }
+
         # ✅ VALIDATE COVERAGE STATS (fail-closed if missing)
         if self.min_coverage_pct > 0 and coverage_stats is None:
             error_msg = (
@@ -129,7 +131,7 @@ class EvaluationGate:
             "min_required": self.min_samples_for_decision,
         }
 
-        logger.info(f"\n[Gate 1] Sufficient Samples")
+        logger.info("\n[Gate 1] Sufficient Samples")
         logger.info(f"  Samples: {num_samples} (min: {self.min_samples_for_decision})")
         logger.info(f"  Result: {'✅ PASS' if gate1_pass else '❌ FAIL'}")
 
@@ -152,7 +154,7 @@ class EvaluationGate:
                 "min_required_pct": self.min_coverage_pct,
             }
 
-            logger.info(f"\n[Gate 2] Minimum Coverage")
+            logger.info("\n[Gate 2] Minimum Coverage")
             logger.info(f"  Coverage: {coverage_pct:.1f}% (min: {self.min_coverage_pct}%)")
             logger.info(f"  Result: {'✅ PASS' if gate2_pass else '❌ FAIL'}")
 
@@ -172,7 +174,7 @@ class EvaluationGate:
             "message": cooldown_msg,
         }
 
-        logger.info(f"\n[Gate 3] Promotion Cooldown")
+        logger.info("\n[Gate 3] Promotion Cooldown")
         logger.info(f"  {cooldown_msg}")
         logger.info(f"  Result: {'✅ PASS' if gate3_pass else '❌ FAIL'}")
 
@@ -192,7 +194,7 @@ class EvaluationGate:
             "threshold": self.min_f1_improvement_pct,
         }
 
-        logger.info(f"\n[Gate 4] Metric Improvement")
+        logger.info("\n[Gate 4] Metric Improvement")
         logger.info(
             f"  F1 improvement: {f1_improvement_pct:.2f}% (min: {self.min_f1_improvement_pct}%)"
         )
@@ -216,7 +218,7 @@ class EvaluationGate:
             "threshold": self.max_brier_degradation,
         }
 
-        logger.info(f"\n[Gate 5] Calibration Maintained")
+        logger.info("\n[Gate 5] Calibration Maintained")
         logger.info(f"  Brier change: {brier_change:.4f} (max: {self.max_brier_degradation})")
         logger.info(f"  Result: {'✅ PASS' if gate5_pass else '❌ FAIL'}")
 
@@ -239,7 +241,7 @@ class EvaluationGate:
             "issues": segment_issues,
         }
 
-        logger.info(f"\n[Gate 6] No Segment Regression")
+        logger.info("\n[Gate 6] No Segment Regression")
         logger.info(f"  Issues found: {len(segment_issues)}")
         logger.info(f"  Result: {'✅ PASS' if gate6_pass else '❌ FAIL'}")
 
@@ -261,7 +263,7 @@ class EvaluationGate:
             f"no segment regression."
         ]
 
-        logger.info(f"  Decision: PROMOTE")
+        logger.info("  Decision: PROMOTE")
         logger.info(f"  Reason: {decision['reason'][0]}")
 
         return True, decision

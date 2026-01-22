@@ -14,10 +14,10 @@ from datetime import datetime
 from typing import Dict, Tuple
 import logging
 import sys
-
-sys.path.append("/app")
 from src.utils.temporal_utils import TemporalWindows
 from src.utils.dataset_fingerprint import get_dataset_metadata
+
+sys.path.append("/app")
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -266,7 +266,7 @@ class ShadowModelTrainer:
                 fn = cm.get("false_negatives", 0)
                 tp = cm.get("true_positives", 0)
 
-                logger.info(f"Confusion Matrix:")
+                logger.info("Confusion Matrix:")
                 logger.info(f"  TN={tn}, FP={fp}")
                 logger.info(f"  FN={fn}, TP={tp}")
 

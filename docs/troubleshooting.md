@@ -47,7 +47,7 @@ permission denied: /var/run/docker.sock
    ```bash
    # Find what's using port 5000 (MLflow)
    lsof -i :5000
-   
+
    # Kill process or change Docker port mapping
    # In docker-compose.yml: change "5000:5000" to "5001:5000"
    ```
@@ -164,7 +164,7 @@ ValidationError: Column 'income' has 15 null values
    ```python
    # Drop nulls
    df = df.dropna()
-   
+
    # Or impute
    df['income'].fillna(df['income'].median(), inplace=True)
    ```
@@ -634,5 +634,5 @@ ls -lt monitoring/reports/drift_reports/ | head -3
 
 ---
 
-**Last Updated:** January 2024  
+**Last Updated:** January 2024
 **Version:** 1.0

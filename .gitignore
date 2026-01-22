@@ -42,3 +42,7 @@ monitoring/retraining/decisions/
 # OS
 .DS_Store
 Thumbs.db
+
+.git/hooks/
+*.bak
+*.backup

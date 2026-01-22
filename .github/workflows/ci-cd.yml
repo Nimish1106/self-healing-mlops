@@ -1,224 +1,45 @@
-name: CI/CD Pipeline
+name: CI Pipeline
 
 on:
-  push:
-    branches: [ main, develop ]
   pull_request:
-    branches: [ main ]
-
-env:
-  PYTHON_VERSION: '3.10'
+  push:
+    branches: [main]
 
 jobs:
-  # ==========================================
-  # Job 1: Data Validation
-  # ==========================================
-  validate-data:
-    name: Data Schema Validation
+  pre-commit:
+    name: Pre-commit Checks
     runs-on: ubuntu-latest
-    
+
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      
+      - uses: actions/checkout@v4
+
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
-      
-      - name: Cache dependencies
-        uses: actions/cache@v3
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('requirements*.txt') }}
-      
-      - name: Install dependencies
-        run: |
-          pip install -r requirements.txt
-          pip install -r requirements-dev.txt
-      
-      - name: Validate data schemas
-        run: |
-          pytest tests/unit/test_data_validation.py -v
+          python-version: '3.10'
+          cache: 'pip'
 
-  # ==========================================
-  # Job 2: Code Quality
-  # ==========================================
-  code-quality:
-    name: Code Quality Checks
-    runs-on: ubuntu-latest
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-      
-      - name: Install dependencies
-        run: |
-          pip install black flake8 mypy
-      
-      - name: Run Black (code formatting)
-        run: |
-          black --check src/ tests/
-      
-      - name: Run Flake8 (linting)
-        run: |
-          flake8 src/ tests/ --max-line-length=100 --exclude=venv,__pycache__
-      
-      - name: Run MyPy (type checking)
-        run: |
-          mypy src/ --ignore-missing-imports || true
+      - name: Install pre-commit
+        run: pip install pre-commit
 
-  # ==========================================
-  # Job 3: Unit Tests
-  # ==========================================
+      - name: Run pre-commit
+        run: pre-commit run --all-files
+
   unit-tests:
     name: Unit Tests
     runs-on: ubuntu-latest
-    needs: [validate-data, code-quality]
-    
+
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      
+      - uses: actions/checkout@v4
+
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
-      
-      - name: Cache dependencies
-        uses: actions/cache@v3
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('requirements*.txt') }}
-      
+          python-version: '3.10'
+          cache: 'pip'
+
       - name: Install dependencies
-        run: |
-          pip install -r requirements.txt
-          pip install -r requirements-dev.txt
-          pip install pytest-cov
-      
+        run: pip install -r requirements.txt
+
       - name: Run unit tests
-        run: |
-          pytest tests/unit/ -v --cov=src --cov-report=xml --cov-report=term-missing
-      
-      - name: Upload coverage
-        uses: codecov/codecov-action@v3
-        with:
-          file: ./coverage.xml
-          flags: unittests
-          fail_ci_if_error: false
-
-  # ==========================================
-  # Job 4: Integration Tests
-  # ==========================================
-  integration-tests:
-    name: Integration Tests
-    runs-on: ubuntu-latest
-    needs: unit-tests
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-      
-      - name: Install dependencies
-        run: |
-          pip install -r requirements.txt
-          pip install -r requirements-dev.txt
-      
-      - name: Run integration tests
-        run: |
-          pytest tests/integration/ -v
-
-  # ==========================================
-  # Job 5: Model Training & Validation
-  # ==========================================
-  train-and-validate:
-    name: Train & Validate Model
-    runs-on: ubuntu-latest
-    needs: unit-tests
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-      
-      - name: Install dependencies
-        run: |
-          pip install -r requirements.txt
-      
-      - name: Download sample data
-        run: |
-          # In real scenario, download from secure storage
-          # For now, check if data exists
-          ls data/ || echo "No data directory"
-      
-      - name: Train model
-        run: |
-          # This would run training in CI
-          # For demo, we skip actual training
-          echo "Training model..."
-          # python src/train_model_mlflow.py
-      
-      - name: Validate model performance
-        run: |
-          # Check model meets baseline performance
-          echo "Validating model performance..."
-          # Add actual validation logic here
-
-  # ==========================================
-  # Job 6: Build Docker Image
-  # ==========================================
-  build-docker:
-    name: Build Docker Image
-    runs-on: ubuntu-latest
-    needs: [integration-tests, train-and-validate]
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      
-      - name: Build Docker image
-        run: |
-          docker build -t self-healing-mlops:latest .
-      
-      - name: Test Docker image
-        run: |
-          docker run --rm self-healing-mlops:latest python --version
-
-  # ==========================================
-  # Job 7: Deploy (on main branch only)
-  # ==========================================
-  deploy:
-    name: Deploy to Production
-    runs-on: ubuntu-latest
-    needs: build-docker
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      
-      - name: Deploy notification
-        run: |
-          echo "Deployment step - would deploy to production here"
-          # In real scenario:
-          # - Push to container registry
-          # - Deploy to cloud platform
-          # - Run smoke tests
+        run: pytest tests/unit

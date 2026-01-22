@@ -7,13 +7,13 @@ graph TB
     subgraph "Data Ingestion"
         A[User Requests] --> B[FastAPI Service]
     end
-    
+
     subgraph "Prediction Layer"
         B --> C[Production Model]
         C --> D[Prediction Logger]
         D --> E[(Predictions CSV)]
     end
-    
+
     subgraph "Monitoring Layer - Phase 3"
         F[Monitoring Scheduler] --> G[Load Predictions]
         G --> H{Sufficient Samples?}
@@ -23,7 +23,7 @@ graph TB
         J --> L[Results Storage]
         K --> L
     end
-    
+
     subgraph "Retraining Layer - Phase 4"
         M[Retraining Trigger] --> N{Drift Significant?}
         N -->|Yes| O[Train Shadow Model]
@@ -32,19 +32,19 @@ graph TB
         Q -->|Yes| R[Promote to Production]
         Q -->|No| S[Archive & Log]
     end
-    
+
     subgraph "Storage Layer"
         T[(Reference Data)]
         U[(MLflow Registry)]
         V[(Labels Store)]
     end
-    
+
     E -.-> G
     L -.-> M
     T -.-> K
     V -.-> O
     R --> U
-    
+
     style B fill:#4CAF50
     style C fill:#2196F3
     style F fill:#FF9800
@@ -75,7 +75,7 @@ graph TD
     E --> G[Log Results]
     F --> G
     G --> H[MLflow + JSON]
-    
+
     I[Reference Data] -.-> F
 ```
 
@@ -85,25 +85,25 @@ graph TD
     A[Drift Detected] --> B{Trigger Criteria Met?}
     B -->|Yes| C[Train Shadow Model]
     B -->|No| D[Continue Monitoring]
-    
+
     C --> E[Evaluation Gate]
-    
+
     E --> F{Gate 1: Samples ≥ 200?}
     F -->|No| G[Reject]
     F -->|Yes| H{Gate 2: F1 +2%?}
-    
+
     H -->|No| G
     H -->|Yes| I{Gate 3: Calibration OK?}
-    
+
     I -->|No| G
     I -->|Yes| J{Gate 4: No Segment Regression?}
-    
+
     J -->|No| G
     J -->|Yes| K[Promote to Production]
-    
+
     G --> L[Archive Shadow Model]
     K --> M[Update Production]
-    
+
     style K fill:#4CAF50
     style G fill:#F44336
 ```
@@ -118,7 +118,7 @@ sequenceDiagram
     participant Model
     participant Logger
     participant Storage
-    
+
     User->>API: POST /predict
     API->>Model: get_prediction(features)
     Model-->>API: prediction, probability
@@ -135,20 +135,20 @@ sequenceDiagram
     participant Storage
     participant Analytics
     participant MLflow
-    
+
     Scheduler->>MonitoringJob: trigger (every 5min)
     MonitoringJob->>Storage: load_predictions(24h)
     Storage-->>MonitoringJob: predictions_df
-    
+
     MonitoringJob->>MonitoringJob: check sample count
-    
+
     alt Sufficient samples
         MonitoringJob->>Analytics: compute_proxy_metrics()
         Analytics-->>MonitoringJob: metrics
-        
+
         MonitoringJob->>Analytics: detect_drift()
         Analytics-->>MonitoringJob: drift_results
-        
+
         MonitoringJob->>MLflow: log_results()
         MonitoringJob->>Storage: save_json()
     else Insufficient samples
@@ -164,15 +164,15 @@ sequenceDiagram
     participant EvalGate
     participant MLflow
     participant Production
-    
+
     Trigger->>Trainer: retrain_needed()
     Trainer->>Trainer: train_shadow_model()
     Trainer->>MLflow: log to Staging
-    
+
     Trainer->>EvalGate: evaluate(prod, shadow)
-    
+
     EvalGate->>EvalGate: check_all_gates()
-    
+
     alt All gates pass
         EvalGate->>MLflow: promote to Production
         MLflow->>Production: update model
@@ -194,7 +194,7 @@ graph LR
     D --> E[Response to User]
     D --> F[Prediction Logger]
     F --> G[predictions.csv]
-    
+
     style B fill:#FFC107
     style G fill:#03A9F4
 ```
@@ -204,13 +204,13 @@ graph LR
 graph TD
     A[Day 1: Prediction Made] --> B[prediction_id created]
     B --> C[Logged to predictions.csv]
-    
+
     D[Day 180: Label Arrives] --> E[Match by prediction_id]
     E --> F[Label Store]
     F --> G[Enable True Evaluation]
-    
+
     C -.->|waiting| E
-    
+
     style A fill:#4CAF50
     style D fill:#FF9800
 ```
@@ -224,29 +224,29 @@ graph TB
         B[reference_data.csv<br/>IMMUTABLE]
         C[labels.csv<br/>Append-only]
     end
-    
+
     subgraph "MLflow Storage"
         D[Experiments]
         E[Model Registry]
         F[Artifacts]
     end
-    
+
     subgraph "Monitoring Storage"
         G[monitoring_results/]
         H[drift_reports/]
     end
-    
+
     I[API] --> A
     J[Bootstrap Script] --> B
     K[Label Collector] --> C
-    
+
     L[Training] --> D
     L --> E
     L --> F
-    
+
     M[Monitoring Job] --> G
     M --> H
-    
+
     style B fill:#F44336
     style A fill:#4CAF50
     style E fill:#2196F3
@@ -262,21 +262,21 @@ graph TB
         C[Monitoring Scheduler]
         D[Airflow<br/>Port 8080]
     end
-    
+
     subgraph "Shared Volumes"
         E[mlflow/]
         F[monitoring/]
         G[data/]
     end
-    
+
     A --- E
     B --- E
     B --- F
     C --- F
     D --- E
-    
+
     H[User Requests] --> B
-    
+
     style A fill:#FF9800
     style B fill:#4CAF50
     style C fill:#2196F3

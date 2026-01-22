@@ -77,7 +77,7 @@ CREATE TABLE retraining_decisions (
     action TEXT NOT NULL CHECK (
         action IN ('train', 'skip', 'promote', 'reject')
     ),
-    
+
     -- Gate details (minimal, human-readable)
     failed_gate TEXT,
     reason TEXT,  -- ✅ gate_results JSONB removed, only human reason
@@ -128,7 +128,7 @@ CREATE TABLE model_versions (
     -- Training context
     trigger_reason TEXT,
     training_run_id TEXT,  -- MLflow run ID
-    
+
     -- Performance snapshot
     f1_score FLOAT,
     brier_score FLOAT,
@@ -136,7 +136,7 @@ CREATE TABLE model_versions (
 
     -- Drift context at training time
     feature_drift_ratio_at_training FLOAT,  -- ✅ RENAMED
-    
+
     -- Decision reference
     decision_id UUID REFERENCES retraining_decisions(id),
 
@@ -162,7 +162,7 @@ COMMENT ON INDEX one_production_model IS 'Governance invariant: exactly one prod
 -- ============================================================
 
 CREATE OR REPLACE VIEW v_recent_monitoring AS
-SELECT 
+SELECT
     timestamp,
     num_predictions,
     feature_drift_ratio,  -- ✅ RENAMED
@@ -174,7 +174,7 @@ ORDER BY timestamp DESC
 LIMIT 100;
 
 CREATE OR REPLACE VIEW v_decision_history AS
-SELECT 
+SELECT
     d.timestamp,
     d.action,
     d.trigger_reason,
@@ -189,7 +189,7 @@ FROM retraining_decisions d
 ORDER BY d.timestamp DESC;
 
 CREATE OR REPLACE VIEW v_model_timeline AS
-SELECT 
+SELECT
     m.model_name,
     m.version,
     m.stage,
@@ -212,7 +212,7 @@ BEGIN
     -- Keep only last 90 days of monitoring metrics
     DELETE FROM monitoring_metrics
     WHERE timestamp < NOW() - INTERVAL '90 days';
-    
+
     RAISE NOTICE 'Cleaned up monitoring metrics older than 90 days';
 END;
 $$ LANGUAGE plpgsql;

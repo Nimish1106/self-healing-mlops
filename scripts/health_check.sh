@@ -17,7 +17,7 @@ echo ""
 check_service() {
     local name=$1
     local url=$2
-    
+
     echo -n "Checking $name... "
     if curl -sf "$url" > /dev/null 2>&1; then
         echo -e "${GREEN}✓${NC}"

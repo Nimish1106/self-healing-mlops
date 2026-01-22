@@ -1,6 +1,6 @@
 # Database Integration Status
 
-**Date**: 2026-01-06  
+**Date**: 2026-01-06
 **Status**: ✅ Monitoring fully integrated, Retraining ready, Model versioning pending
 
 ---
@@ -53,8 +53,8 @@ drift_report_ref     - Path to drift HTML artifact
 
 **Verification** (2026-01-06 10:49):
 ```sql
-SELECT id, timestamp, num_predictions, feature_drift_ratio 
-FROM monitoring_metrics 
+SELECT id, timestamp, num_predictions, feature_drift_ratio
+FROM monitoring_metrics
 ORDER BY timestamp DESC LIMIT 1;
 
 -- Result:
@@ -107,7 +107,7 @@ coverage_pct        - Percentage of labeled predictions available
 
 #### 1. [src/retraining/model_promoter.py](src/retraining/model_promoter.py)
 
-**Current State**: 
+**Current State**:
 - Promotes models via MLflow API only
 - Saves promotion records to JSON files
 - Does NOT write to `model_versions` table
@@ -223,7 +223,7 @@ CREATE TABLE model_versions (
 
 ### Monitoring Metrics (Latest)
 ```sql
-SELECT 
+SELECT
     timestamp,
     num_predictions,
     feature_drift_ratio,
@@ -299,10 +299,10 @@ GROUP BY model_name, stage;
 
 ## 🔐 Connection Details
 
-**Database**: `mlops` (separate from Airflow DB)  
-**Host**: `postgres:5432`  
-**User**: `airflow` / `airflow`  
-**Connection Pooling**: psycopg2 SimpleConnectionPool (1-10 connections)  
+**Database**: `mlops` (separate from Airflow DB)
+**Host**: `postgres:5432`
+**User**: `airflow` / `airflow`
+**Connection Pooling**: psycopg2 SimpleConnectionPool (1-10 connections)
 **Environment Variables**:
 ```
 POSTGRES_HOST=postgres

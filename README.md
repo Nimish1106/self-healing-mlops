@@ -104,15 +104,15 @@ graph TB
     A[User Request] --> B[FastAPI]
     B --> C[Production Model]
     C --> D[Prediction + Logging]
-    
+
     E[Monitoring Job] --> F{Drift?}
     F -->|Yes| G[Train Shadow Model]
     G --> H{Gates Pass?}
     H -->|Yes| I[Promote]
     H -->|No| J[Archive]
-    
+
     D --> E
-    
+
     style B fill:#4CAF50
     style G fill:#FF9800
     style H fill:#F44336

@@ -79,7 +79,7 @@ num_samples = min(
 ### Rejection Reason
 
 ```
-"Insufficient samples ({num_samples} < 200). 
+"Insufficient samples ({num_samples} < 200).
  Need more labeled predictions before evaluation."
 ```
 
@@ -134,7 +134,7 @@ f1_improvement_pct = (
 ### Rejection Reason
 
 ```
-"Insufficient F1 improvement ({improvement_pct:.2f}% < 2.0%). 
+"Insufficient F1 improvement ({improvement_pct:.2f}% < 2.0%).
  Model must show measurable performance gain."
 ```
 
@@ -194,7 +194,7 @@ gate = EvaluationGate(
 ### Rejection Reason
 
 ```
-"Calibration degraded ({degradation:.4f} > 0.01). 
+"Calibration degraded ({degradation:.4f} > 0.01).
  Shadow model's probability estimates are less reliable."
 ```
 
@@ -312,9 +312,9 @@ All gates must pass for promotion:
 
 ```python
 all_gates_pass = (
-    samples_valid 
-    AND f1_improved 
-    AND calibration_ok 
+    samples_valid
+    AND f1_improved
+    AND calibration_ok
     AND no_segment_regression
 )
 

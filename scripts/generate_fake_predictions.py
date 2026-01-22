@@ -20,7 +20,7 @@ Usage:
         --num-samples 3000 \
         --coverage 50 \
         --drift-phase 2
-        
+
     # For severe drift simulation:
     docker-compose exec api python scripts/generate_fake_predictions.py \
         --num-samples 3000 \
@@ -30,6 +30,7 @@ Usage:
 
 import sys
 import os
+
 sys.path.append("/app")
 
 import time
@@ -56,6 +57,7 @@ logger = logging.getLogger(__name__)
 # Safe conversion helpers (CRITICAL)
 # ------------------------------------------------------------------
 
+
 def safe_float(val, min_val=None, max_val=None, default=0.0):
     try:
         val = float(val)
@@ -81,30 +83,33 @@ def safe_int(val, min_val=None, max_val=None, default=0):
     except Exception:
         return default
 
+
 # ------------------------------------------------------------------
 # Load temporal dataset
 # ------------------------------------------------------------------
+
 
 def load_temporal_data():
     path = "/app/data/processed/cs-training-temporal.csv"
 
     if not os.path.exists(path):
-        raise FileNotFoundError(
-            f"Temporal dataset not found: {path}\n"
-            "Run bootstrap step first."
-        )
+        raise FileNotFoundError(f"Temporal dataset not found: {path}\n" "Run bootstrap step first.")
 
     df = pd.read_csv(path)
     logger.info(f"Loaded {len(df)} rows from temporal dataset")
     return df
 
+
 # ------------------------------------------------------------------
 # Drift injection (REALISTIC + AGGRESSIVE)
 # ------------------------------------------------------------------
 
-def apply_drift(row: pd.Series, phase: int, sample_idx: int = 0, total_samples: int = 1) -> pd.Series:
+
+def apply_drift(
+    row: pd.Series, phase: int, sample_idx: int = 0, total_samples: int = 1
+) -> pd.Series:
     r = row.copy()
-    
+
     # Calculate progression ratio for gradual drift over time
     progression = sample_idx / max(total_samples, 1)
 
@@ -213,27 +218,37 @@ def apply_drift(row: pd.Series, phase: int, sample_idx: int = 0, total_samples: 
 
     return r
 
+
 # ------------------------------------------------------------------
 # Convert row to API payload
 # ------------------------------------------------------------------
 
+
 def to_payload(row: pd.Series) -> dict:
     return {
-        "RevolvingUtilizationOfUnsecuredLines": safe_float(row["RevolvingUtilizationOfUnsecuredLines"], 0.0, 1.0),
+        "RevolvingUtilizationOfUnsecuredLines": safe_float(
+            row["RevolvingUtilizationOfUnsecuredLines"], 0.0, 1.0
+        ),
         "age": safe_int(row["age"], 18, 100),
-        "NumberOfTime30_59DaysPastDueNotWorse": safe_int(row["NumberOfTime30_59DaysPastDueNotWorse"], 0, 10),
+        "NumberOfTime30_59DaysPastDueNotWorse": safe_int(
+            row["NumberOfTime30_59DaysPastDueNotWorse"], 0, 10
+        ),
         "DebtRatio": safe_float(row["DebtRatio"], 0.0, 5.0),
         "MonthlyIncome": safe_float(row["MonthlyIncome"], 0.0, 1_000_000),
         "NumberOfOpenCreditLinesAndLoans": safe_int(row["NumberOfOpenCreditLinesAndLoans"], 0, 50),
         "NumberOfTimes90DaysLate": safe_int(row["NumberOfTimes90DaysLate"], 0, 10),
         "NumberRealEstateLoansOrLines": safe_int(row["NumberRealEstateLoansOrLines"], 0, 10),
-        "NumberOfTime60_89DaysPastDueNotWorse": safe_int(row["NumberOfTime60_89DaysPastDueNotWorse"], 0, 10),
+        "NumberOfTime60_89DaysPastDueNotWorse": safe_int(
+            row["NumberOfTime60_89DaysPastDueNotWorse"], 0, 10
+        ),
         "NumberOfDependents": safe_int(row["NumberOfDependents"], 0, 10),
     }
+
 
 # ------------------------------------------------------------------
 # API call
 # ------------------------------------------------------------------
+
 
 def call_api(payload: dict, api_url: str):
     try:
@@ -244,9 +259,11 @@ def call_api(payload: dict, api_url: str):
     except Exception as e:
         return False, str(e)
 
+
 # ------------------------------------------------------------------
 # Label storage (delayed)
 # ------------------------------------------------------------------
+
 
 def store_labels(prediction_records, coverage_pct):
     from src.storage.label_store import get_label_store
@@ -266,9 +283,11 @@ def store_labels(prediction_records, coverage_pct):
             prediction_timestamp=ts,
         )
 
+
 # ------------------------------------------------------------------
 # Main generation logic
 # ------------------------------------------------------------------
+
 
 def generate(num_samples, coverage, drift_phase, api_url, delay):
     df = load_temporal_data()
@@ -292,34 +311,45 @@ def generate(num_samples, coverage, drift_phase, api_url, delay):
             prediction_records.append(
                 (result["prediction_id"], row["SeriousDlqin2yrs"], pred_timestamp)
             )
-            
+
             if i % 100 == 0:
-                logger.info(f"Progress: {i}/{len(df)} | Recent drift metrics - "
-                           f"Debt: {drifted['DebtRatio']:.2f}, "
-                           f"Income: {drifted['MonthlyIncome']:.0f}, "
-                           f"Late90: {drifted['NumberOfTimes90DaysLate']:.0f}")
+                logger.info(
+                    f"Progress: {i}/{len(df)} | Recent drift metrics - "
+                    f"Debt: {drifted['DebtRatio']:.2f}, "
+                    f"Income: {drifted['MonthlyIncome']:.0f}, "
+                    f"Late90: {drifted['NumberOfTimes90DaysLate']:.0f}"
+                )
         else:
             logger.error(f"Prediction {i} failed: {result}")
 
         time.sleep(delay)
 
     logger.info(f"✅ Generated {len(prediction_records)} predictions with timestamps")
-    
+
     if prediction_records:
         store_labels(prediction_records, coverage)
-        logger.info(f"📊 Data drift injected at Phase {drift_phase}. "
-                   f"Check drift_detection results in monitoring/ directory")
+        logger.info(
+            f"📊 Data drift injected at Phase {drift_phase}. "
+            f"Check drift_detection results in monitoring/ directory"
+        )
+
 
 # ------------------------------------------------------------------
 # Entrypoint
 # ------------------------------------------------------------------
 
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--num-samples", type=int, default=2000)
     parser.add_argument("--coverage", type=int, default=50)
-    parser.add_argument("--drift-phase", type=int, default=1, choices=[0, 1, 2, 3],
-                       help="0=baseline, 1=financial stress, 2=delinquency, 3=severe downturn")
+    parser.add_argument(
+        "--drift-phase",
+        type=int,
+        default=1,
+        choices=[0, 1, 2, 3],
+        help="0=baseline, 1=financial stress, 2=delinquency, 3=severe downturn",
+    )
     parser.add_argument("--api-url", type=str, default="http://localhost:8000/predict")
     parser.add_argument("--delay", type=float, default=0.03)
 

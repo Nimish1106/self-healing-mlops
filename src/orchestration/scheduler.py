@@ -9,10 +9,10 @@ from datetime import datetime
 from typing import Callable
 import sys
 import signal
-
-sys.path.append("/app")
 from src.monitoring.monitoring_job import run_monitoring_job
 from src.storage.db_manager import get_db_manager  # ✅ NEW
+
+sys.path.append("/app")
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"

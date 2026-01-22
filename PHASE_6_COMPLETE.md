@@ -591,6 +591,6 @@ Ready for deployment and operations.
 
 ---
 
-**Document Version:** 1.0  
-**Last Updated:** January 2024  
+**Document Version:** 1.0
+**Last Updated:** January 2024
 **Owner:** MLOps Team

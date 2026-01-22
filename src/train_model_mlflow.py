@@ -21,10 +21,10 @@ from datetime import datetime
 import os
 import sys
 
-# Add utils to path
-sys.path.append("/app")
 from src.utils.dataset_fingerprint import get_dataset_metadata
 
+# Add utils to path
+sys.path.append("/app")
 # MLflow configuration
 MLFLOW_TRACKING_URI = os.getenv("MLFLOW_TRACKING_URI", "http://mlflow:5000")
 mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
@@ -123,7 +123,7 @@ def train_and_log(
         mlflow.log_metrics(all_metrics)
 
         # --- PRINT KEY METRICS ---
-        print(f"\n📊 Model Performance:")
+        print("\n📊 Model Performance:")
         print(f"  Test ROC AUC:     {test_metrics['test_roc_auc']:.4f}")
         print(f"  Test F1:          {test_metrics['test_f1']:.4f}")
         print(f"  Test Brier Score: {test_metrics['test_brier_score']:.4f}")
@@ -138,7 +138,7 @@ def train_and_log(
         feature_importance.to_csv(importance_file, index=False)
         mlflow.log_artifact(importance_file, "feature_importance")
 
-        print(f"\n🔍 Top 5 Features:")
+        print("\n🔍 Top 5 Features:")
         for idx, row in feature_importance.head().iterrows():
             print(f"  {row['feature']}: {row['importance']:.4f}")
 
@@ -188,7 +188,7 @@ def promote_to_production(model_name: str, run_id: str):
     )
 
     print(f"\n✅ Model version {version} promoted to Production")
-    print(f"   Previous Production models archived")
+    print("   Previous Production models archived")
 
 
 def main():
@@ -207,7 +207,7 @@ def main():
 
     # --- COMPUTE DATASET FINGERPRINT ---
     dataset_metadata = get_dataset_metadata(df)
-    print(f"\n🔍 Dataset Fingerprint:")
+    print("\n🔍 Dataset Fingerprint:")
     print(f"   Hash: {dataset_metadata['dataset_hash'][:16]}...")
     print(f"   Rows: {dataset_metadata['dataset_rows']:,}")
     print(f"   Columns: {dataset_metadata['dataset_columns']}")
@@ -219,7 +219,7 @@ def main():
         X, y, test_size=0.2, random_state=42, stratify=y
     )
 
-    print(f"\n📊 Data Split:")
+    print("\n📊 Data Split:")
     print(f"   Train: {len(X_train):,} samples")
     print(f"   Test:  {len(X_test):,} samples")
 

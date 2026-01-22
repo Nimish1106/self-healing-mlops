@@ -23,7 +23,7 @@ case $DRIFT_TYPE in
         for i in $(seq 1 $COUNT); do
             income=$((10000 + RANDOM % 10000))  # Higher income range
             age=$((40 + RANDOM % 30))           # Older population
-            
+
             curl -s -X POST "${API_URL}/predict" \
                 -H "Content-Type: application/json" \
                 -d "{
@@ -38,14 +38,14 @@ case $DRIFT_TYPE in
                     \"NumberOfTime60_89DaysPastDueNotWorse\": 0,
                     \"NumberOfDependents\": 1
                 }" > /dev/null
-            
+
             if [ $((i % 25)) -eq 0 ]; then
                 echo -e "${GREEN}Progress: $i/${COUNT}${NC}"
             fi
             sleep 0.05
         done
         ;;
-        
+
     population)
         echo "Population drift: Changing class balance"
         # Generate more high-risk profiles
@@ -64,21 +64,21 @@ case $DRIFT_TYPE in
                     "NumberOfTime60_89DaysPastDueNotWorse": 3,
                     "NumberOfDependents": 3
                 }' > /dev/null
-            
+
             if [ $((i % 25)) -eq 0 ]; then
                 echo -e "${GREEN}Progress: $i/${COUNT}${NC}"
             fi
             sleep 0.05
         done
         ;;
-        
+
     concept)
         echo "Concept drift: Cannot be simulated with features only"
         echo "This would require changing the underlying Y relationship"
         echo "Skipping..."
         exit 0
         ;;
-        
+
     *)
         echo -e "${RED}Unknown drift type: $DRIFT_TYPE${NC}"
         echo "Available types: covariate, population, concept"

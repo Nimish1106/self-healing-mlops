@@ -102,8 +102,8 @@ mypy src/ --ignore-missing-imports
 
 ### Stage 1: Data Validation
 
-**When:** Always runs first  
-**What:** Validates CSV data against Pandera schemas  
+**When:** Always runs first
+**What:** Validates CSV data against Pandera schemas
 **Command:** `pytest tests/unit/test_data_validation.py -v`
 
 ```yaml
@@ -117,8 +117,8 @@ pytest tests/unit/test_data_validation.py -v
 
 ### Stage 2: Code Quality
 
-**When:** Runs in parallel with data validation  
-**What:** Checks formatting, linting, type hints  
+**When:** Runs in parallel with data validation
+**What:** Checks formatting, linting, type hints
 **Commands:**
 - Black: `black --check src/ tests/`
 - Flake8: `flake8 src/ tests/ --max-line-length=100`
@@ -137,8 +137,8 @@ mypy src/ --ignore-missing-imports
 
 ### Stage 3: Unit Tests
 
-**When:** After stages 1 & 2 pass  
-**What:** Tests individual components in isolation  
+**When:** After stages 1 & 2 pass
+**What:** Tests individual components in isolation
 **Command:** `pytest tests/unit/ -v --cov=src`
 
 ```powershell
@@ -160,8 +160,8 @@ pytest tests/unit/ -v --cov=src --cov-report=html
 
 ### Stage 4: Integration Tests
 
-**When:** After unit tests pass  
-**What:** Tests components working together  
+**When:** After unit tests pass
+**What:** Tests components working together
 **Command:** `pytest tests/integration/ -v`
 
 ```powershell
@@ -180,8 +180,8 @@ pytest tests/integration/ -v
 
 ### Stage 5: Model Training & Validation
 
-**When:** After integration tests pass  
-**What:** Trains model and validates performance  
+**When:** After integration tests pass
+**What:** Trains model and validates performance
 **Commands:**
 1. Check data: `ls data/`
 2. Train: `python src/train_model_mlflow.py` (simulated in CI)
@@ -193,8 +193,8 @@ pytest tests/integration/ -v
 
 ### Stage 6: Docker Build
 
-**When:** After training passes  
-**What:** Builds Docker image  
+**When:** After training passes
+**What:** Builds Docker image
 **Command:** `docker build -t self-healing-mlops:latest .`
 
 ```powershell
@@ -209,8 +209,8 @@ docker run --rm self-healing-mlops:latest python --version
 
 ### Stage 7: Deploy
 
-**When:** After Docker build passes AND on `main` branch only  
-**What:** Deploys to production  
+**When:** After Docker build passes AND on `main` branch only
+**What:** Deploys to production
 **Actions:**
 1. Push to container registry
 2. Update cloud deployment
@@ -441,7 +441,7 @@ Trend: Should increase over time
 
 ### Issue: Tests Pass Locally But Fail in GitHub Actions
 
-**Cause:** Different Python version or dependencies  
+**Cause:** Different Python version or dependencies
 **Solution:**
 ```powershell
 # Match GitHub's Python 3.10
@@ -455,7 +455,7 @@ pytest tests/ -v
 
 ### Issue: Can't Push Code (Pre-commit Hooks)
 
-**Cause:** Pre-commit hooks failing  
+**Cause:** Pre-commit hooks failing
 **Solution:**
 ```powershell
 # Fix formatting
@@ -471,7 +471,7 @@ git push
 
 ### Issue: Docker Build Fails in GitHub Actions
 
-**Cause:** Missing files or permissions  
+**Cause:** Missing files or permissions
 **Solution:**
 ```powershell
 # Test locally
@@ -489,7 +489,7 @@ ls requirements.txt
 
 ### Issue: Deployment Failed
 
-**Only affects main branch**  
+**Only affects main branch**
 **Check:**
 1. Go to Actions tab
 2. Click failed deploy job
@@ -625,6 +625,6 @@ Then monitor at: GitHub → Actions tab
 
 ---
 
-**Version:** 1.0  
-**Last Updated:** January 2024  
+**Version:** 1.0
+**Last Updated:** January 2024
 **Status:** Active

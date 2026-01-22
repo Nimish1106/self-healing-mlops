@@ -149,7 +149,7 @@ class DriftDetector:
                 "reason": "DatasetDriftMetric not found in Evidently output",
             }
 
-        logger.info(f"Found DatasetDriftMetric")
+        logger.info("Found DatasetDriftMetric")
         logger.info(f"Keys in dataset_metric: {list(dataset_metric.keys())}")
 
         # Extract ColumnDriftMetric for each feature
@@ -173,7 +173,7 @@ class DriftDetector:
         excluded_features = [f for f in self.feature_columns if f not in column_metrics]
         num_excluded = len(excluded_features)
 
-        logger.info(f"Feature analysis:")
+        logger.info("Feature analysis:")
         logger.info(f"  Total features: {total_features}")
         logger.info(f"  Evaluated: {evaluated_features}")
         logger.info(f"  Excluded: {num_excluded}")

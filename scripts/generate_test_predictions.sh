@@ -46,16 +46,16 @@ for i in $(seq 1 $COUNT); do
     # Add some randomness to the data
     age=$((25 + RANDOM % 50))
     income=$((5000 + RANDOM % 15000))
-    
+
     # Create modified input
     modified_input=$(echo $SAMPLE_INPUT | \
         jq ".age = $age | .MonthlyIncome = $income")
-    
+
     # Make prediction
     response=$(curl -s -X POST "${API_URL}/predict" \
         -H "Content-Type: application/json" \
         -d "$modified_input")
-    
+
     if echo "$response" | jq -e '.prediction' > /dev/null 2>&1; then
         ((success_count++))
         # Progress indicator
@@ -66,7 +66,7 @@ for i in $(seq 1 $COUNT); do
         ((fail_count++))
         echo -e "${RED}Failed at $i: $response${NC}"
     fi
-    
+
     # Small delay to avoid overwhelming the API
     sleep 0.05
 done

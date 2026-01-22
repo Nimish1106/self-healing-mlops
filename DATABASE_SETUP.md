@@ -141,26 +141,26 @@ CREATE TABLE retraining_decisions (
 
 ### List all production models
 ```sql
-SELECT * FROM model_versions 
-WHERE status = 'production' 
+SELECT * FROM model_versions
+WHERE status = 'production'
 ORDER BY promoted_at DESC;
 ```
 
 ### View recent decisions
 ```sql
-SELECT * FROM v_decision_history 
+SELECT * FROM v_decision_history
 LIMIT 10;
 ```
 
 ### Check latest monitoring metrics
 ```sql
-SELECT * FROM v_recent_monitoring 
+SELECT * FROM v_recent_monitoring
 LIMIT 20;
 ```
 
 ### Get model promotion timeline
 ```sql
-SELECT * FROM v_model_timeline 
+SELECT * FROM v_model_timeline
 ORDER BY created_at DESC;
 ```
 

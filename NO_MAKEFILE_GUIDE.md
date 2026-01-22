@@ -676,6 +676,6 @@ Watch GitHub Actions run automatically! 🚀
 
 ---
 
-**Version:** 2.0 (No Makefile)  
-**Date:** January 2024  
+**Version:** 2.0 (No Makefile)
+**Date:** January 2024
 **Status:** Active & Tested

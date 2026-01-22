@@ -326,6 +326,6 @@ Status: **READY FOR PRODUCTION DEPLOYMENT**
 
 ---
 
-**Last Updated:** January 2024  
-**Version:** 1.0 Final  
+**Last Updated:** January 2024
+**Version:** 1.0 Final
 **Owner:** MLOps Team

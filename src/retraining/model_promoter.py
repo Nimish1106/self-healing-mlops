@@ -10,10 +10,9 @@ import json
 from pathlib import Path
 import pandas as pd
 import sys
+from src.storage.repositories import ModelVersionsRepository
 
 sys.path.append("/app")
-
-from src.storage.repositories import ModelVersionsRepository
 
 logger = logging.getLogger(__name__)
 

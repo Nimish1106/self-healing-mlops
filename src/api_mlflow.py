@@ -21,10 +21,10 @@ from datetime import datetime
 from typing import Optional
 import logging
 import sys
+from src.storage.prediction_logger import get_prediction_logger
 
 # Add to path
 sys.path.append("/app")
-from src.storage.prediction_logger import get_prediction_logger
 
 # Configure logging
 logging.basicConfig(
@@ -176,8 +176,8 @@ def load_production_model():
     except Exception as e:
         logger.error(f"❌ Failed to load Production model: {e}")
         raise RuntimeError(
-            f"Cannot start API: No model in Production stage. "
-            f"Train a model and promote it to Production first."
+            "Cannot start API: No model in Production stage. "
+            "Train a model and promote it to Production first."
         )
 
 
