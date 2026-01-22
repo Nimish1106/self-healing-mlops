@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+*.egg-info/
+
+# Data (copied separately via volumes)
+data/*.csv
+
+# MLflow artifacts (mounted as volume)
+mlflow/
+
+# Git
+.git/
+.gitignore
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Testing
+.pytest_cache/
+tests/
+
+# Documentation
+*.md
+docs/
+
+# Logs
+*.log

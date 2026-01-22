@@ -1,9 +1,48 @@
-venv/
+# Python
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
 
-data/
-logs/
-artifacts/
+# Virtual environments
+venv/
+env/
+ENV/
 
-.env
+# Data - Runtime outputs only (source CSVs are tracked)
+data/processed/*.pkl
+*.pkl
+
+# MLflow - Exclude tracking data but keep setup
+mlflow/mlruns/
+mlflow/mlflow.db
+mlflow/artifacts/
+
+# Monitoring - Exclude runtime outputs but keep directory structure
+monitoring/predictions/*.csv
+monitoring/labels/*.csv
+monitoring/reference/*.csv
+monitoring/metrics/monitoring_results/
+monitoring/reports/drift_reports/
+monitoring/retraining/decisions/
+
+# Docker
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+.git/hooks/
+*.bak
+*.backup
