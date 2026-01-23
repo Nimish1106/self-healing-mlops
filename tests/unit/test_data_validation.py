@@ -3,6 +3,7 @@ Data validation tests using Pandera.
 
 Ensures data schemas are enforced and breaking changes are caught.
 """
+
 import pytest
 import pandas as pd
 import pandera as pa

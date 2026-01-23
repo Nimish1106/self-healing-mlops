@@ -3,6 +3,7 @@ Unit tests for proxy metrics calculation.
 
 Tests the calculation of proxy metrics for model monitoring.
 """
+
 import pytest
 import pandas as pd
 import numpy as np

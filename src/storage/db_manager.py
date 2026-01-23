@@ -4,6 +4,7 @@ Database connection manager.
 Uses PostgreSQL (Airflow's existing database).
 Connection pooling for efficiency.
 """
+
 import psycopg2
 from psycopg2.pool import SimpleConnectionPool
 from contextlib import contextmanager

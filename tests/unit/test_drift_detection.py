@@ -3,6 +3,7 @@ Unit tests for drift detection logic.
 
 Tests the core drift detection functionality without external dependencies.
 """
+
 import pytest
 import pandas as pd
 import numpy as np

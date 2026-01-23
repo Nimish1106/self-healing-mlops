@@ -3,6 +3,7 @@ Integration tests for API endpoints.
 
 Tests the API as a whole, including request/response flow.
 """
+
 import pytest
 from fastapi.testclient import TestClient
 import sys

@@ -1,6 +1,7 @@
 """
 Model promoter with cooldown enforcement.
 """
+
 import mlflow
 from mlflow.tracking import MlflowClient
 from datetime import datetime, timedelta

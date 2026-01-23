@@ -10,6 +10,7 @@ Why?
 - Enables true apples-to-apples comparison
 - CSV header misalignment breaks downstream pipelines
 """
+
 import pandas as pd
 from pathlib import Path
 from datetime import datetime

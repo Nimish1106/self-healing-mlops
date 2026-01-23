@@ -7,6 +7,7 @@ Fixes:
 3. Removed gate_results JSONB
 4. Fixed SQL INTERVAL parameterization bug
 """
+
 import uuid
 from datetime import datetime
 from typing import Dict, List, Optional

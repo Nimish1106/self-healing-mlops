@@ -4,6 +4,7 @@ Unit tests for evaluation gate logic.
 CRITICAL: These tests verify the decision-making logic
 that determines whether shadow models get promoted.
 """
+
 import pytest
 import sys
 

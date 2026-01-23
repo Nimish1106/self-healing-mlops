@@ -3,6 +3,7 @@ Integration tests for monitoring pipeline.
 
 Tests the complete monitoring workflow including drift detection and alert generation.
 """
+
 import pytest
 import pandas as pd
 import numpy as np

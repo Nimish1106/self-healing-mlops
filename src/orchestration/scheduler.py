@@ -3,6 +3,7 @@ Simple scheduler for monitoring jobs.
 
 MINIMAL CHANGES: Already a dumb scheduler, just verify DB connection at startup.
 """
+
 import time
 import logging
 from datetime import datetime

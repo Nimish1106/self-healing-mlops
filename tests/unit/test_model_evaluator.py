@@ -3,6 +3,7 @@ Unit tests for model evaluator logic.
 
 Tests model evaluation and performance metrics calculation.
 """
+
 import pytest
 import pandas as pd
 import numpy as np

@@ -95,12 +95,12 @@ def compute_rate_of_change(
     )
 
     return {
-        "positive_rate_change_per_hour": positive_rate_delta / time_delta_hours
-        if time_delta_hours > 0
-        else 0,
-        "probability_mean_change_per_hour": probability_mean_delta / time_delta_hours
-        if time_delta_hours > 0
-        else 0,
+        "positive_rate_change_per_hour": (
+            positive_rate_delta / time_delta_hours if time_delta_hours > 0 else 0
+        ),
+        "probability_mean_change_per_hour": (
+            probability_mean_delta / time_delta_hours if time_delta_hours > 0 else 0
+        ),
         "time_delta_hours": time_delta_hours,
     }
 
