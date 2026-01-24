@@ -54,7 +54,7 @@ class ModelEvaluator:
             mlflow_tracking_uri: MLflow server
         """
         self.segment_features = segment_features or []
-        mlflow.set_tracking_uri(mlflow_tracking_uri)
+        mlflow.set_tracking_uri(mlflow_tracking_uri)  # type: ignore
         self.client = mlflow.tracking.MlflowClient()
 
     def evaluate_predictions(

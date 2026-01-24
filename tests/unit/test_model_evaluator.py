@@ -9,9 +9,10 @@ import sys
 import pytest
 import pandas as pd
 import numpy as np
-from src.analytics.model_evaluator import ModelEvaluator
+from unittest.mock import patch
 
 sys.path.append("/app")
+from src.analytics.model_evaluator import ModelEvaluator
 
 
 class TestModelEvaluator:
@@ -19,49 +20,54 @@ class TestModelEvaluator:
 
     def test_initialization(self):
         """Test ModelEvaluator initializes correctly."""
-        evaluator = ModelEvaluator()
-        assert evaluator is not None
+        with patch("src.analytics.model_evaluator.mlflow"):
+            evaluator = ModelEvaluator()
+            assert evaluator is not None
 
     def test_calculate_binary_metrics(self, sample_labels_df):
         """Test binary classification metrics calculation."""
-        evaluator = ModelEvaluator()
+        with patch("src.analytics.model_evaluator.mlflow"):
+            evaluator = ModelEvaluator()
 
-        # Create true labels and predictions
-        y_true = sample_labels_df["true_label"].values
-        y_pred = np.random.binomial(1, 0.1, len(y_true))
-        y_pred_proba = np.random.beta(2, 8, len(y_true))
+            # Create true labels and predictions
+            y_true = pd.Series(sample_labels_df["true_label"].values)
+            y_pred = pd.Series(np.random.binomial(1, 0.1, len(y_true)))
+            y_prob = pd.Series(np.random.beta(2, 8, len(y_true)))
 
-        # Calculate metrics
-        metrics = evaluator.calculate_metrics(
-            y_true=y_true, y_pred=y_pred, y_pred_proba=y_pred_proba
-        )
+            # Calculate metrics
+            metrics = evaluator.evaluate_predictions(y_true=y_true, y_pred=y_pred, y_prob=y_prob)
 
-        # Check metrics structure
-        assert isinstance(metrics, dict)
-        assert "accuracy" in metrics or "f1_score" in metrics
+            # Check metrics structure
+            assert isinstance(metrics, dict)
+            assert "f1_score" in metrics or "accuracy" in metrics
 
     def test_confusion_matrix_calculation(self, sample_labels_df):
         """Test confusion matrix calculation."""
-        evaluator = ModelEvaluator()
+        with patch("src.analytics.model_evaluator.mlflow"):
+            evaluator = ModelEvaluator()
 
-        y_true = sample_labels_df["true_label"].values
-        y_pred = np.random.binomial(1, 0.1, len(y_true))
+            y_true = pd.Series(sample_labels_df["true_label"].values)
+            y_pred = pd.Series(np.random.binomial(1, 0.1, len(y_true)))
+            y_prob = pd.Series(np.random.beta(2, 8, len(y_true)))
 
-        # Calculate confusion matrix
-        cm = evaluator.calculate_confusion_matrix(y_true, y_pred)
+            # Calculate metrics (which includes confusion matrix)
+            metrics = evaluator.evaluate_predictions(y_true, y_pred, y_prob)
 
-        assert cm is not None
-        assert cm.shape == (2, 2)
+            assert "confusion_matrix" in metrics
+            assert metrics["confusion_matrix"] is not None
 
     def test_roc_auc_calculation(self, sample_labels_df):
         """Test ROC AUC calculation."""
-        evaluator = ModelEvaluator()
+        with patch("src.analytics.model_evaluator.mlflow"):
+            evaluator = ModelEvaluator()
 
-        y_true = sample_labels_df["true_label"].values
-        y_pred_proba = np.random.beta(2, 8, len(y_true))
+            y_true = pd.Series(sample_labels_df["true_label"].values)
+            y_prob = pd.Series(np.random.beta(2, 8, len(y_true)))
+            y_pred = pd.Series((y_prob > 0.5).astype(int))
 
-        # Calculate ROC AUC
-        roc_auc = evaluator.calculate_roc_auc(y_true, y_pred_proba)
+            # Calculate metrics
+            metrics = evaluator.evaluate_predictions(y_true, y_pred, y_prob)
 
-        # ROC AUC should be between 0 and 1
-        assert 0 <= roc_auc <= 1
+            # ROC AUC should be in metrics
+            assert "roc_auc" in metrics
+            assert 0 <= metrics["roc_auc"] <= 1

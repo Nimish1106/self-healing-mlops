@@ -35,8 +35,17 @@ class TestEvaluationGate:
         }
 
         comparison = {"f1_improvement_pct": 5.0, "brier_change": -0.005}
+        coverage_stats = {
+            "lines": 95,
+            "branches": 80,
+            "label_coverage_pct": 50.0,
+            "labeled_samples": 125,
+            "total_samples": 250,
+        }
 
-        should_promote, decision = gate.evaluate(production_metrics, shadow_metrics, comparison)
+        should_promote, decision = gate.evaluate(
+            production_metrics, shadow_metrics, comparison, coverage_stats
+        )
 
         assert should_promote is True
         assert decision["final_decision"] is True
@@ -59,8 +68,17 @@ class TestEvaluationGate:
         }
 
         comparison = {"f1_improvement_pct": 0.625, "brier_change": 0.0}
+        coverage_stats = {
+            "lines": 95,
+            "branches": 80,
+            "label_coverage_pct": 50.0,
+            "labeled_samples": 125,
+            "total_samples": 250,
+        }
 
-        should_promote, decision = gate.evaluate(production_metrics, shadow_metrics, comparison)
+        should_promote, decision = gate.evaluate(
+            production_metrics, shadow_metrics, comparison, coverage_stats
+        )
 
         assert should_promote is False
         assert decision["final_decision"] is False
@@ -83,8 +101,17 @@ class TestEvaluationGate:
         }
 
         comparison = {"f1_improvement_pct": 6.25, "brier_change": 0.05}  # Exceeds threshold
+        coverage_stats = {
+            "lines": 95,
+            "branches": 80,
+            "label_coverage_pct": 50.0,
+            "labeled_samples": 125,
+            "total_samples": 250,
+        }
 
-        should_promote, decision = gate.evaluate(production_metrics, shadow_metrics, comparison)
+        should_promote, decision = gate.evaluate(
+            production_metrics, shadow_metrics, comparison, coverage_stats
+        )
 
         assert should_promote is False
         assert "Calibration degraded" in decision["reason"][0]
@@ -96,8 +123,15 @@ class TestEvaluationGate:
         production_metrics = {"num_samples": 150}
         shadow_metrics = {"num_samples": 150}
         comparison = {}
+        coverage_stats = {
+            "lines": 95,
+            "branches": 80,
+            "label_coverage_pct": 50.0,
+        }
 
-        should_promote, decision = gate.evaluate(production_metrics, shadow_metrics, comparison)
+        should_promote, decision = gate.evaluate(
+            production_metrics, shadow_metrics, comparison, coverage_stats
+        )
 
         assert should_promote is False
         assert "Insufficient samples" in decision["reason"][0]

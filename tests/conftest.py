@@ -21,20 +21,20 @@ def sample_predictions_df():
     data = {
         "timestamp": pd.date_range("2024-01-01", periods=n_samples, freq="1H"),
         "prediction_id": [f"pred_{i}" for i in range(n_samples)],
-        "prediction": np.random.binomial(1, 0.1, n_samples),
+        "prediction": np.random.binomial(1, 0.1, n_samples).astype("int64"),
         "probability": np.random.beta(2, 8, n_samples),
         "model_version": ["1"] * n_samples,
         # Features
         "RevolvingUtilizationOfUnsecuredLines": np.random.uniform(0, 1, n_samples),
-        "age": np.random.randint(18, 80, n_samples),
-        "NumberOfTime30_59DaysPastDueNotWorse": np.random.randint(0, 5, n_samples),
+        "age": np.random.randint(18, 80, n_samples, dtype="int64"),
+        "NumberOfTime30_59DaysPastDueNotWorse": np.random.randint(0, 5, n_samples, dtype="int64"),
         "DebtRatio": np.random.uniform(0, 2, n_samples),
         "MonthlyIncome": np.random.uniform(1000, 15000, n_samples),
-        "NumberOfOpenCreditLinesAndLoans": np.random.randint(0, 20, n_samples),
-        "NumberOfTimes90DaysLate": np.random.randint(0, 3, n_samples),
-        "NumberRealEstateLoansOrLines": np.random.randint(0, 10, n_samples),
-        "NumberOfTime60_89DaysPastDueNotWorse": np.random.randint(0, 3, n_samples),
-        "NumberOfDependents": np.random.randint(0, 5, n_samples),
+        "NumberOfOpenCreditLinesAndLoans": np.random.randint(0, 20, n_samples, dtype="int64"),
+        "NumberOfTimes90DaysLate": np.random.randint(0, 3, n_samples, dtype="int64"),
+        "NumberRealEstateLoansOrLines": np.random.randint(0, 10, n_samples, dtype="int64"),
+        "NumberOfTime60_89DaysPastDueNotWorse": np.random.randint(0, 3, n_samples, dtype="int64"),
+        "NumberOfDependents": np.random.randint(0, 5, n_samples, dtype="int64"),
     }
 
     return pd.DataFrame(data)
@@ -48,10 +48,10 @@ def sample_labels_df(sample_predictions_df):
 
     data = {
         "prediction_id": prediction_ids,
-        "true_label": np.random.binomial(1, 0.1, len(prediction_ids)),
+        "true_label": np.random.binomial(1, 0.1, len(prediction_ids)).astype("int64"),
         "label_timestamp": pd.date_range("2024-01-02", periods=len(prediction_ids), freq="1H"),
         "label_source": "test",
-        "days_delayed": np.random.randint(1, 30, len(prediction_ids)),
+        "days_delayed": np.random.randint(1, 30, len(prediction_ids), dtype="int64"),
     }
 
     return pd.DataFrame(data)
@@ -103,3 +103,27 @@ def feature_columns():
         "NumberOfTime60_89DaysPastDueNotWorse",
         "NumberOfDependents",
     ]
+
+
+@pytest.fixture
+def numerical_features():
+    """Numerical features for drift detection."""
+    return [
+        "RevolvingUtilizationOfUnsecuredLines",
+        "age",
+        "NumberOfTime30_59DaysPastDueNotWorse",
+        "DebtRatio",
+        "MonthlyIncome",
+        "NumberOfOpenCreditLinesAndLoans",
+        "NumberOfTimes90DaysLate",
+        "NumberRealEstateLoansOrLines",
+        "NumberOfTime60_89DaysPastDueNotWorse",
+        "NumberOfDependents",
+    ]
+
+
+@pytest.fixture
+def sample_predictions_array():
+    """Sample predictions array for proxy metrics tests."""
+    np.random.seed(42)
+    return np.random.binomial(1, 0.1, 300).astype("int64")

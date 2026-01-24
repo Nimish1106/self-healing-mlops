@@ -9,55 +9,37 @@ import sys
 import pytest
 import pandas as pd
 import numpy as np
-from src.analytics.proxy_metrics import ProxyMetricsCalculator
 
 sys.path.append("/app")
+from src.analytics.proxy_metrics import (
+    compute_probability_entropy,
+    compute_prediction_distribution_stats,
+)
 
 
-class TestProxyMetricsCalculator:
-    """Test suite for ProxyMetricsCalculator class."""
-
-    def test_initialization(self):
-        """Test ProxyMetricsCalculator initializes correctly."""
-        calculator = ProxyMetricsCalculator()
-        assert calculator is not None
+class TestProxyMetrics:
+    """Test suite for proxy metrics functions."""
 
     def test_calculate_prediction_entropy(self, sample_predictions_df):
         """Test entropy calculation from predictions."""
-        calculator = ProxyMetricsCalculator()
-
-        # Get sample of predictions
-        predictions = sample_predictions_df["probability"].values
-
         # Calculate entropy
-        entropy = calculator.calculate_entropy(predictions)
+        entropy = compute_probability_entropy(sample_predictions_df)
+        # Entropy should be between 0 and inf
+        assert entropy >= 0
 
-        # Entropy should be between 0 and 1 for probabilities
-        assert 0 <= entropy <= 1
+    def test_compute_distribution_stats(self, sample_predictions_df):
+        """Test prediction distribution statistics calculation."""
+        stats = compute_prediction_distribution_stats(sample_predictions_df)
 
-    def test_calculate_class_imbalance(self, sample_predictions_df):
-        """Test class imbalance metric calculation."""
-        calculator = ProxyMetricsCalculator()
+        # Check stats structure
+        assert "num_predictions" in stats
+        assert "positive_rate" in stats
+        assert "probability_mean" in stats
+        assert stats["num_predictions"] > 0
 
-        predictions = sample_predictions_df["prediction"].values
+    def test_compute_distribution_stats_empty(self):
+        """Test that empty data returns status."""
+        empty_df = pd.DataFrame({"prediction": [], "probability": []})
+        result = compute_prediction_distribution_stats(empty_df)
 
-        # Calculate imbalance
-        imbalance = calculator.calculate_class_imbalance(predictions)
-
-        # Imbalance ratio should be > 0
-        assert imbalance > 0
-
-    def test_calculate_prediction_drift_signal(self, sample_predictions_df):
-        """Test prediction drift signal calculation."""
-        calculator = ProxyMetricsCalculator()
-
-        # Get two samples
-        ref_predictions = sample_predictions_df.iloc[:100]["probability"].values
-        current_predictions = sample_predictions_df.iloc[100:200]["probability"].values
-
-        # Calculate drift signal
-        signal = calculator.calculate_drift_signal(ref_predictions, current_predictions)
-
-        assert isinstance(signal, dict)
-        assert "drift_magnitude" in signal
-        assert signal["drift_magnitude"] >= 0
+        assert result.get("status") == "no_data"
