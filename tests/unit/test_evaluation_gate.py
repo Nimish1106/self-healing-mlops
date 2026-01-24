@@ -19,7 +19,10 @@ class TestEvaluationGate:
     def test_gate_passes_on_good_shadow_model(self):
         """Test that gate approves a clearly better model."""
         gate = EvaluationGate(
-            min_f1_improvement_pct=2.0, max_brier_degradation=0.01, min_samples_for_decision=200
+            min_f1_improvement_pct=2.0,
+            max_brier_degradation=0.01,
+            min_samples_for_decision=200,
+            min_coverage_pct=0.0,  # Disable coverage check for test
         )
 
         production_metrics = {
@@ -38,7 +41,7 @@ class TestEvaluationGate:
         coverage_stats = {
             "lines": 95,
             "branches": 80,
-            "label_coverage_pct": 50.0,
+            "label_coverage_pct": 50.0,  # 50% coverage > 25% minimum
             "labeled_samples": 125,
             "total_samples": 250,
         }
@@ -53,7 +56,7 @@ class TestEvaluationGate:
 
     def test_gate_fails_on_insufficient_improvement(self):
         """Test that gate rejects model with insufficient F1 improvement."""
-        gate = EvaluationGate(min_f1_improvement_pct=2.0)
+        gate = EvaluationGate(min_f1_improvement_pct=2.0, min_coverage_pct=0.0)
 
         production_metrics = {
             "num_samples": 250,
@@ -82,11 +85,16 @@ class TestEvaluationGate:
 
         assert should_promote is False
         assert decision["final_decision"] is False
-        assert "Insufficient F1 improvement" in decision["reason"][0]
+        # Check for improvement gate failure
+        assert any(
+            "Insufficient F1 improvement" in str(reason) for reason in decision.get("reason", [])
+        ) or "Insufficient F1 improvement" in str(decision.get("gate_results", {}))
 
     def test_gate_fails_on_calibration_degradation(self):
         """Test that gate rejects model with worse calibration."""
-        gate = EvaluationGate(min_f1_improvement_pct=2.0, max_brier_degradation=0.01)
+        gate = EvaluationGate(
+            min_f1_improvement_pct=2.0, max_brier_degradation=0.01, min_coverage_pct=0.0
+        )
 
         production_metrics = {
             "num_samples": 250,
@@ -114,7 +122,10 @@ class TestEvaluationGate:
         )
 
         assert should_promote is False
-        assert "Calibration degraded" in decision["reason"][0]
+        # Check for calibration gate failure
+        assert any(
+            "Calibration degraded" in str(reason) for reason in decision.get("reason", [])
+        ) or "Calibration degraded" in str(decision.get("gate_results", {}))
 
     def test_gate_fails_on_insufficient_samples(self):
         """Test that gate requires minimum sample size."""

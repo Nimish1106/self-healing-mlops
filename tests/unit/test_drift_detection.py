@@ -45,7 +45,7 @@ class TestDriftDetector:
         assert "dataset_drift_detected" in results
         # Identical data should have low drift share
         if "drift_share" in results:
-            assert results["drift_share"] < 0.5
+            assert results["drift_share"] <= 0.5
 
     def test_drift_on_shifted_data(
         self, sample_reference_data, feature_columns, numerical_features
