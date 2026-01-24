@@ -5,8 +5,9 @@ CRITICAL: These tests verify the decision-making logic
 that determines whether shadow models get promoted.
 """
 
-import pytest
 import sys
+
+import pytest
 
 sys.path.append("/app")
 from src.retraining.evaluation_gate import EvaluationGate

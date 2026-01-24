@@ -4,10 +4,11 @@ Unit tests for proxy metrics calculation.
 Tests the calculation of proxy metrics for model monitoring.
 """
 
+import sys
+
 import pytest
 import pandas as pd
 import numpy as np
-import sys
 
 sys.path.append("/app")
 from src.analytics.proxy_metrics import ProxyMetricsCalculator

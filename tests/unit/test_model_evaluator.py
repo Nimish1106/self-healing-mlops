@@ -4,10 +4,11 @@ Unit tests for model evaluator logic.
 Tests model evaluation and performance metrics calculation.
 """
 
+import sys
+
 import pytest
 import pandas as pd
 import numpy as np
-import sys
 
 sys.path.append("/app")
 from src.analytics.model_evaluator import ModelEvaluator

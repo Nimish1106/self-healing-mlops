@@ -4,9 +4,10 @@ Integration tests for API endpoints.
 Tests the API as a whole, including request/response flow.
 """
 
+import sys
+
 import pytest
 from fastapi.testclient import TestClient
-import sys
 
 sys.path.append("/app")
 from src.api_mlflow import app

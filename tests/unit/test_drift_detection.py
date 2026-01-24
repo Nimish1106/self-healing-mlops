@@ -4,10 +4,11 @@ Unit tests for drift detection logic.
 Tests the core drift detection functionality without external dependencies.
 """
 
+import sys
+
 import pytest
 import pandas as pd
 import numpy as np
-import sys
 
 sys.path.append("/app")
 from src.analytics.drift_detection import DriftDetector

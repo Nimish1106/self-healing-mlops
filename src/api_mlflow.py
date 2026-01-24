@@ -61,7 +61,7 @@ def check_and_reload_model_if_needed():
     This allows the API to pick up new models without restarting.
     Called before each prediction request.
     """
-    global model, model_version, _last_checked_version
+    global model, model_version, _last_checked_version  # noqa: F824
 
     try:
         client = mlflow.tracking.MlflowClient()
