@@ -13,19 +13,22 @@ from src.api_mlflow import app
 sys.path.append("/app")
 
 
-client = TestClient(app)
+@pytest.fixture
+def client():
+    """Fixture to provide a TestClient instance."""
+    return TestClient(app)
 
 
 class TestAPIEndpoints:
     """Test suite for API endpoints."""
 
-    def test_root_endpoint(self):
+    def test_root_endpoint(self, client):
         """Test root endpoint returns 200."""
         response = client.get("/")
         assert response.status_code == 200
         assert "service" in response.json()
 
-    def test_health_endpoint(self):
+    def test_health_endpoint(self, client):
         """Test health check endpoint."""
         response = client.get("/health")
         assert response.status_code == 200
@@ -34,14 +37,14 @@ class TestAPIEndpoints:
         assert "status" in data
         assert "model_loaded" in data
 
-    def test_model_info_endpoint(self):
+    def test_model_info_endpoint(self, client):
         """Test model info endpoint."""
         response = client.get("/model/info")
 
         # May return 503 if model not loaded in test environment
         assert response.status_code in [200, 503]
 
-    def test_predict_endpoint_validation(self):
+    def test_predict_endpoint_validation(self, client):
         """Test that predict endpoint validates input."""
         # Invalid input (missing required fields)
         invalid_input = {
@@ -52,7 +55,7 @@ class TestAPIEndpoints:
         response = client.post("/predict", json=invalid_input)
         assert response.status_code == 422  # Validation error
 
-    def test_predict_endpoint_valid_input(self):
+    def test_predict_endpoint_valid_input(self, client):
         """Test prediction with valid input."""
         valid_input = {
             "RevolvingUtilizationOfUnsecuredLines": 0.766127,
@@ -84,7 +87,7 @@ class TestAPIEndpoints:
             assert data["prediction"] in [0, 1]
             assert 0 <= data["probability"] <= 1
 
-    def test_predict_endpoint_invalid_values(self):
+    def test_predict_endpoint_invalid_values(self, client):
         """Test that invalid feature values are rejected."""
         invalid_input = {
             "RevolvingUtilizationOfUnsecuredLines": 0.5,
@@ -102,7 +105,7 @@ class TestAPIEndpoints:
         response = client.post("/predict", json=invalid_input)
         assert response.status_code == 422  # Validation error
 
-    def test_monitoring_stats_endpoint(self):
+    def test_monitoring_stats_endpoint(self, client):
         """Test monitoring stats endpoint."""
         response = client.get("/monitoring/stats")
         assert response.status_code in [200, 500]  # May not have data in test
