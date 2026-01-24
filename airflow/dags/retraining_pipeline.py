@@ -13,6 +13,7 @@ TRIGGERS:
   - Scheduled weekly run (routine maintenance)
   - Manual trigger (operator intervention)
 """
+
 from airflow import DAG
 from airflow.operators.python import PythonOperator, BranchPythonOperator
 from airflow.operators.bash import BashOperator
@@ -196,9 +197,11 @@ def check_retraining_needed(**context):
                     "coverage_pct": coverage["coverage_rate"] * 100,
                 },
                 decision_details={
-                    "reason": "Insufficient data"
-                    if not has_sufficient_data
-                    else "Proceeding with training",
+                    "reason": (
+                        "Insufficient data"
+                        if not has_sufficient_data
+                        else "Proceeding with training"
+                    ),
                     "shadow_model_version": None,
                     "production_model_version": None,
                 },
@@ -524,24 +527,26 @@ def run_evaluation_gate(**context):
                 trigger_reason=trigger_reason,
                 action="promote" if should_promote else "reject",
                 drift_context={
-                    "feature_drift_ratio": drift_details.get("drift_share", 0.0)
-                    if drift_details
-                    else 0.0,
-                    "num_drifted_features": len(drift_details.get("drifted_feature_names", []))
-                    if drift_details
-                    else 0,
+                    "feature_drift_ratio": (
+                        drift_details.get("drift_share", 0.0) if drift_details else 0.0
+                    ),
+                    "num_drifted_features": (
+                        len(drift_details.get("drifted_feature_names", [])) if drift_details else 0
+                    ),
                     "dataset_drift_detected": drift_details is not None
                     and drift_details.get("drift_share", 0) > 0,
-                    "drifted_features": drift_details.get("drifted_feature_names", [])
-                    if drift_details
-                    else [],
+                    "drifted_features": (
+                        drift_details.get("drifted_feature_names", []) if drift_details else []
+                    ),
                 },
                 data_context=coverage_stats,
                 decision_details={
                     "reason": "; ".join(decision["reason"]),
-                    "failed_gate": decision.get("gate_results", {}).get("failed_gate")
-                    if not should_promote
-                    else None,
+                    "failed_gate": (
+                        decision.get("gate_results", {}).get("failed_gate")
+                        if not should_promote
+                        else None
+                    ),
                     "shadow_model_version": context["task_instance"].xcom_pull(
                         task_ids="train_shadow_model", key="shadow_version"
                     ),

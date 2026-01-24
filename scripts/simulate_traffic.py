@@ -1,6 +1,7 @@
 """
 Simulate API traffic and delayed labels.
 """
+
 import requests
 import pandas as pd
 import time

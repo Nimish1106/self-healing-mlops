@@ -3,6 +3,7 @@ Initialize MLOps database.
 
 Run once to create schema.
 """
+
 import sys
 
 sys.path.append("/app")

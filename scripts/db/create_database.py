@@ -9,6 +9,7 @@ This script:
 2. Creates 'mlops' database if it doesn't exist
 3. Sets proper permissions
 """
+
 import psycopg2
 import os
 import logging

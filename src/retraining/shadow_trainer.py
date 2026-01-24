@@ -138,9 +138,9 @@ class ShadowModelTrainer:
         num_classes = y_eval.nunique()
         if num_classes < 2:
             validation_status["valid"] = False
-            validation_status[
-                "message"
-            ] = f"Eval set is single-class: {num_classes} class(es) found"
+            validation_status["message"] = (
+                f"Eval set is single-class: {num_classes} class(es) found"
+            )
             validation_status["issues"].append("eval_single_class")
             logger.warning(f"🚨 {validation_status['message']}")
 

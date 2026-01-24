@@ -253,7 +253,7 @@ class DriftInjector:
         n_flipped = flip_mask.sum()
 
         logger.info(f"Concept drift (label flip): {target_column}")
-        logger.info(f"  Flipped {n_flipped} labels ({n_flipped/len(data)*100:.1f}%)")
+        logger.info(f"  Flipped {n_flipped} labels ({n_flipped / len(data) * 100:.1f}%)")
 
         # Log drift event
         self.drift_logger.log_drift_event(

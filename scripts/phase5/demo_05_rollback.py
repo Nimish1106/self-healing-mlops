@@ -16,6 +16,7 @@ Expected outcome:
 - Rejection logged as successful outcome
 - Production model unchanged
 """
+
 import sys
 
 sys.path.append("/app")

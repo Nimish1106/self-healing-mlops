@@ -92,7 +92,9 @@ class DataSimulator:
 
             # Progress logging
             if (idx + 1) % log_progress_every == 0:
-                logger.info(f"Progress: {idx + 1}/{num_samples} ({(idx+1)/num_samples*100:.1f}%)")
+                logger.info(
+                    f"Progress: {idx + 1}/{num_samples} ({(idx + 1) / num_samples * 100:.1f}%)"
+                )
 
             # Rate limiting
             time.sleep(self.delay_seconds)
@@ -103,7 +105,7 @@ class DataSimulator:
         logger.info("SIMULATION COMPLETE")
         logger.info(f"  Successful: {stats['successful_predictions']}")
         logger.info(f"  Failed: {stats['failed_predictions']}")
-        logger.info(f"  Success rate: {stats['successful_predictions']/num_samples*100:.1f}%")
+        logger.info(f"  Success rate: {stats['successful_predictions'] / num_samples * 100:.1f}%")
         logger.info("=" * 80)
 
         return stats

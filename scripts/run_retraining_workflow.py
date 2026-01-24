@@ -4,6 +4,7 @@ Manual retraining workflow (runs outside Airflow).
 Usage:
     docker-compose exec api python scripts/run_retraining_workflow.py
 """
+
 import sys
 
 sys.path.append("/app")
