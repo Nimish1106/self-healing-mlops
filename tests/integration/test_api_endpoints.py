@@ -17,8 +17,7 @@ sys.path.append("/app")
 @pytest.fixture
 def client():
     """Fixture to provide a TestClient instance."""
-    transport = ASGITransport(app=app)
-    return TestClient(transport=transport)
+    return TestClient(app)
 
 
 class TestAPIEndpoints:
