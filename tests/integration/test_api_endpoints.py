@@ -17,8 +17,9 @@ sys.path.append("/app")
 def client():
     """Fixture to provide an httpx Client with ASGI transport."""
     transport = ASGITransport(app=app)
-    with Client(transport=transport, base_url="http://test") as client:
-        yield client
+    client = Client(transport=transport, base_url="http://test")
+    yield client
+    client.close()
 
 
 class TestAPIEndpoints:
