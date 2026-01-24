@@ -15,7 +15,6 @@ NOT RESPONSIBLE FOR:
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 import mlflow
-import mlflow.sklearn
 import numpy as np
 import os
 from datetime import datetime
@@ -162,7 +161,7 @@ def load_production_model():
     try:
         model_uri = f"models:/{MODEL_NAME}/{PRODUCTION_STAGE}"
         logger.info(f"Loading model: {model_uri}")
-        model = mlflow.sklearn.load_model(model_uri)
+        model = mlflow.pyfunc.load_model(model_uri)
 
         # Get version info
         client = mlflow.tracking.MlflowClient()
