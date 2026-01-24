@@ -9,9 +9,9 @@ import sys
 import pytest
 import pandas as pd
 import numpy as np
+from src.analytics.proxy_metrics import ProxyMetricsCalculator
 
 sys.path.append("/app")
-from src.analytics.proxy_metrics import ProxyMetricsCalculator
 
 
 class TestProxyMetricsCalculator:

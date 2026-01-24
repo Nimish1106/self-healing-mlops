@@ -8,9 +8,9 @@ that determines whether shadow models get promoted.
 import sys
 
 import pytest
+from src.retraining.evaluation_gate import EvaluationGate
 
 sys.path.append("/app")
-from src.retraining.evaluation_gate import EvaluationGate
 
 
 class TestEvaluationGate:

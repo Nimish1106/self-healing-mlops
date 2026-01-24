@@ -8,9 +8,10 @@ import sys
 
 import pytest
 from fastapi.testclient import TestClient
+from src.api_mlflow import app
 
 sys.path.append("/app")
-from src.api_mlflow import app
+
 
 client = TestClient(app)
 
