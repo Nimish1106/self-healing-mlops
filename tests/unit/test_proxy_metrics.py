@@ -9,12 +9,12 @@ import sys
 import pytest
 import pandas as pd
 import numpy as np
-
-sys.path.append("/app")
 from src.analytics.proxy_metrics import (
     compute_probability_entropy,
     compute_prediction_distribution_stats,
 )
+
+sys.path.append("/app")
 
 
 class TestProxyMetrics:

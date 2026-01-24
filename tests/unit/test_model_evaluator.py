@@ -10,9 +10,9 @@ import pytest
 import pandas as pd
 import numpy as np
 from unittest.mock import patch
+from src.analytics.model_evaluator import ModelEvaluator
 
 sys.path.append("/app")
-from src.analytics.model_evaluator import ModelEvaluator
 
 
 class TestModelEvaluator:
