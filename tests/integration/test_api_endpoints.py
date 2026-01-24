@@ -7,7 +7,7 @@ Tests the API as a whole, including request/response flow.
 import sys
 
 import pytest
-from fastapi.testclient import TestClient
+from httpx import Client, ASGITransport
 from src.api_mlflow import app
 
 sys.path.append("/app")
@@ -15,8 +15,10 @@ sys.path.append("/app")
 
 @pytest.fixture
 def client():
-    """Fixture to provide a TestClient instance."""
-    return TestClient(app)
+    """Fixture to provide an httpx Client with ASGI transport."""
+    transport = ASGITransport(app=app)
+    with Client(transport=transport, base_url="http://test") as client:
+        yield client
 
 
 class TestAPIEndpoints:
