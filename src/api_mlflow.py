@@ -35,6 +35,7 @@ logger = logging.getLogger(__name__)
 
 # MLflow configuration
 MLFLOW_TRACKING_URI = os.getenv("MLFLOW_TRACKING_URI", "http://mlflow:5000")
+TESTING = os.getenv("TESTING", "false").lower() == "true"
 mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
 
 MODEL_NAME = "credit-risk-model"
@@ -60,7 +61,13 @@ def check_and_reload_model_if_needed():
 
     This allows the API to pick up new models without restarting.
     Called before each prediction request.
+
+    Skipped during testing to avoid MLflow network calls.
     """
+    # Skip MLflow calls during testing
+    if TESTING:
+        return False
+
     global model, model_version, _last_checked_version  # noqa: F824
 
     try:
