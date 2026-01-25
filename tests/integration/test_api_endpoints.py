@@ -55,6 +55,7 @@ class TestAPIEndpoints:
         response = client.post("/predict", json=invalid_input)
         assert response.status_code == 422  # Validation error
 
+    @pytest.mark.timeout(5)
     def test_predict_endpoint_valid_input(self, client):
         """Test prediction with valid input."""
         valid_input = {
@@ -87,6 +88,7 @@ class TestAPIEndpoints:
             assert data["prediction"] in [0, 1]
             assert 0 <= data["probability"] <= 1
 
+    @pytest.mark.timeout(5)
     def test_predict_endpoint_invalid_values(self, client):
         """Test that invalid feature values are rejected."""
         invalid_input = {
