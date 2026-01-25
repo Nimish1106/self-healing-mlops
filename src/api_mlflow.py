@@ -35,8 +35,13 @@ logger = logging.getLogger(__name__)
 
 # MLflow configuration
 MLFLOW_TRACKING_URI = os.getenv("MLFLOW_TRACKING_URI", "http://mlflow:5000")
-TESTING = os.getenv("TESTING", "false").lower() == "true"
 mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
+
+
+def is_testing() -> bool:
+    """Check if running in test mode (evaluated at runtime, not import time)."""
+    return os.getenv("TESTING", "false").lower() == "true"
+
 
 MODEL_NAME = "credit-risk-model"
 PRODUCTION_STAGE = "Production"
@@ -64,8 +69,8 @@ def check_and_reload_model_if_needed():
 
     Skipped during testing to avoid MLflow network calls.
     """
-    # Skip MLflow calls during testing
-    if TESTING:
+    # Skip MLflow calls during testing (checked at runtime)
+    if is_testing():
         return False
 
     global model, model_version, _last_checked_version  # noqa: F824
