@@ -81,31 +81,31 @@ graph TD
 
 ### Phase 4: Self-Healing
 ```mermaid
-graph TD
-    A[Drift Detected] --> B{Trigger Criteria Met?}
-    B -->|Yes| C[Train Shadow Model]
-    B -->|No| D[Continue Monitoring]
+flowchart TD
+    A[Triggers<br/>• Scheduled<br/>• Drift Observed<br/>• Manual] --> B[Check Retraining Conditions]
 
-    C --> E[Evaluation Gate]
+    B --> C{Sufficient Labeled Data<br/>+ Coverage?}
+    C -- No --> Z[Skip Retraining<br/>Log Decision]
 
-    E --> F{Gate 1: Samples ≥ 200?}
-    F -->|No| G[Reject]
-    F -->|Yes| H{Gate 2: F1 +2%?}
+    C -- Yes --> D[Train Shadow Model<br/>Temporal Split]
 
-    H -->|No| G
-    H -->|Yes| I{Gate 3: Calibration OK?}
+    D --> E{Training Aborted?}
+    E -- Yes --> Z
+    E -- No --> F[Replay-Based Evaluation<br/>Prod vs Shadow]
 
-    I -->|No| G
-    I -->|Yes| J{Gate 4: No Segment Regression?}
+    F --> G{First Deployment?}
+    G -- Yes --> K[Auto-Promote]
 
-    J -->|No| G
-    J -->|Yes| K[Promote to Production]
+    G -- No --> H[Evaluation Gate<br/>Multi-Criteria]
 
-    G --> L[Archive Shadow Model]
-    K --> M[Update Production]
+    H --> I{Gate Passed?}
+    I -- Yes --> K[Promote to Production]
+    I -- No --> J[Reject Shadow Model]
 
-    style K fill:#4CAF50
-    style G fill:#F44336
+    K --> L[Log Promotion]
+    J --> L
+    Z --> L
+
 ```
 
 ## Component Interactions
