@@ -7,6 +7,8 @@ __pycache__/
 *.egg-info/
 dist/
 build/
+.mypy_cache/
+.pytest_cache/
 
 # Virtual environments
 venv/
@@ -15,6 +17,7 @@ ENV/
 
 # Data - Runtime outputs only (source CSVs are tracked)
 data/processed/*.pkl
+data/processed/*.csv
 *.pkl
 
 # MLflow - Exclude tracking data but keep setup
@@ -23,15 +26,21 @@ mlflow/mlflow.db
 mlflow/artifacts/
 
 # Monitoring - Exclude runtime outputs but keep directory structure
-monitoring/predictions/*.csv
-monitoring/labels/*.csv
-monitoring/reference/*.csv
+monitoring/predictions/
+monitoring/labels/
 monitoring/metrics/monitoring_results/
 monitoring/reports/drift_reports/
 monitoring/retraining/decisions/
 
-# Docker
+# Logs & test output
 *.log
+test-unit-output.log
+integration_test_output.txt
+coverage.xml
+.coverage
+
+# Environment
+.env
 
 # IDE
 .vscode/
@@ -43,6 +52,7 @@ monitoring/retraining/decisions/
 .DS_Store
 Thumbs.db
 
+# Git internals
 .git/hooks/
 *.bak
 *.backup
