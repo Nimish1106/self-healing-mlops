@@ -56,7 +56,7 @@ graph TB
 
     E[Monitoring Job] --> F{Drift > 30%?}
     F -->|Yes| G[Train Shadow Model]
-    G --> H{Pass 4 Gates?}
+    G --> H{Pass 6 Gates?}
     H -->|Yes| I[Promote to Prod]
     H -->|No| J[Archive + Log]
 
