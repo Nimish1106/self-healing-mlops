@@ -6,110 +6,59 @@
 ![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=for-the-badge&logo=docker)
 ![MLflow](https://img.shields.io/badge/MLflow-2.9.2-0194E2?style=for-the-badge&logo=mlflow)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.104-009688?style=for-the-badge&logo=fastapi)
-![Tests](https://img.shields.io/badge/Tests-Passing-success?style=for-the-badge)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-13-336791?style=for-the-badge&logo=postgresql)
 
-**Production-grade ML pipeline with automated drift detection and intelligent retraining**
+**Production-grade ML system with automated drift detection and intelligent retraining**
 
-[Architecture](#-architecture) • [Quick Start](#-quick-start) • [Documentation](#-documentation) • [Testing](#-testing)
+[Quick Start](#-quick-start) • [Architecture](docs/architecture.md) • [Documentation](#-documentation) • [API Docs](http://localhost:8000/docs)
 
 </div>
 
 ---
 
-## 📋 Table of Contents
-
-- [Overview](#-overview)
-- [Features](#-features)
-- [Architecture](#-architecture)
-- [Quick Start](#-quick-start)
-- [Project Structure](#-project-structure)
-- [Phase-by-Phase Guide](#-phase-by-phase-guide)
-- [Testing](#-testing)
-- [CI/CD](#-cicd-pipeline)
-- [Configuration](#-configuration)
-- [Monitoring](#-monitoring)
-- [Troubleshooting](#-troubleshooting)
-- [Contributing](#-contributing)
-
----
-
 ## 🎯 Overview
 
-A **production-grade ML system** that monitors model performance, detects drift, and automatically retrains when needed. Built with real-world MLOps best practices, not toy examples.
+A **production-ready MLOps pipeline** that continuously monitors model performance, detects data drift, and automatically retrains models using shadow deployment and multi-criteria evaluation gates.
 
-### What Makes This Different?
+### Why This Project Stands Out
 
-| Feature | Typical Student Project | This Project |
-|---------|------------------------|--------------|
-| **Model Deployment** | Train once, deploy, done | Continuous monitoring + retraining |
-| **Drift Detection** | Not implemented | Statistical drift detection (Evidently AI) |
-| **Decision Logic** | Manual intervention | Automated evaluation gates |
-| **Production Readiness** | Local scripts | Docker, CI/CD, tests, documentation |
-| **Data Reality** | Instant labels | Handles delayed ground truth |
+| Typical ML Project | This Implementation |
+|-------------------|---------------------|
+| Train → Deploy → Done | Continuous monitoring + auto-retraining |
+| No drift detection | Statistical drift detection (Evidently AI) |
+| Manual model updates | Automated shadow models + evaluation gates |
+| Local development only | Full Docker stack + CI/CD pipeline |
+| Instant labels assumed | Handles real-world delayed feedback |
+
+**Built for:** Credit risk prediction with real-world constraints and production MLOps patterns.
 
 ---
 
-## ✨ Features
+## ✨ Key Features
 
-### Core Capabilities
-
-- 🎯 **Credit Risk Prediction** - Real-time prediction API
-- 📊 **Drift Detection** - Statistical monitoring with Evidently AI
-- 🔄 **Automated Retraining** - Shadow models with evaluation gates
-- 🐳 **Fully Containerized** - Docker Compose orchestration
-- 📈 **MLflow Integration** - Experiment tracking + model registry
-- 🧪 **Comprehensive Testing** - Unit, integration, and validation tests
-- 🚀 **CI/CD Pipeline** - GitHub Actions automation
-- 📚 **Production Documentation** - Architecture diagrams + runbooks
-
-### Technical Highlights
-
-**Phase 1-2: Foundation**
-- FastAPI prediction service
-- MLflow experiment tracking
-- Docker containerization
-- Dataset fingerprinting
-
-**Phase 3: Monitoring**
-- Proxy metrics (no labels needed)
-- Drift detection (Evidently AI)
-- Time-windowed analysis
-- Frozen reference data
-
-**Phase 4: Self-Healing**
-- Shadow model training
-- Multi-criteria evaluation gates
-- Automated model promotion
-- Rollback mechanisms
-
-**Phase 5: Orchestration**
-- Airflow DAG workflows
-- Scheduled retraining
-- Pipeline automation
-
-**Phase 6: Production Polish**
-- 100+ unit/integration tests
-- Data validation (Pandera)
-- CI/CD with GitHub Actions
-- Code quality enforcement
+- 🎯 **Real-Time Predictions** - FastAPI service with <100ms latency
+- 📊 **Drift Detection** - Statistical monitoring without requiring labels (Evidently AI)
+- 🔄 **Smart Retraining** - Shadow models with 4-gate evaluation (performance, calibration, fairness, validation)
+- 🗄️ **PostgreSQL Backend** - Scalable storage for predictions, labels, and metrics
+- 📈 **MLflow Integration** - Full experiment tracking and model registry
+- 🐳 **Production Ready** - Docker Compose orchestration with 8 services
+- 🧪 **Well Tested** - 87.5% test coverage with unit/integration tests
+- 🚀 **CI/CD Pipeline** - GitHub Actions with automated quality checks
 
 ---
 
 ## 🏗️ Architecture
-
-### High-Level Overview
-
 ```mermaid
 graph TB
     A[User Request] --> B[FastAPI]
     B --> C[Production Model]
-    C --> D[Prediction + Logging]
+    C --> D[PostgreSQL]
 
-    E[Monitoring Job] --> F{Drift?}
+    E[Monitoring Job] --> F{Drift > 30%?}
     F -->|Yes| G[Train Shadow Model]
-    G --> H{Gates Pass?}
-    H -->|Yes| I[Promote]
-    H -->|No| J[Archive]
+    G --> H{Pass 4 Gates?}
+    H -->|Yes| I[Promote to Prod]
+    H -->|No| J[Archive + Log]
 
     D --> E
 
@@ -118,84 +67,67 @@ graph TB
     style H fill:#F44336
 ```
 
-**[📖 Detailed Architecture Documentation](docs/architecture.md)**
-
-### System Components
-
-```
-┌─────────────────────────────────────────────┐
-│          Self-Healing ML System             │
-├─────────────────────────────────────────────┤
-│                                             │
-│  API Layer          → FastAPI service       │
-│  Model Layer        → Production + Shadow   │
-│  Monitoring Layer   → Drift detection       │
-│  Retraining Layer   → Automated updates     │
-│  Storage Layer      → MLflow + CSV          │
-│  Orchestration      → Airflow DAGs          │
-│                                             │
-└─────────────────────────────────────────────┘
-```
+**[📖 Detailed Architecture](docs/architecture.md)** | **[🔍 Evaluation Gates](docs/evaluation_gates.md)**
 
 ---
 
 ## 🚀 Quick Start
 
 ### Prerequisites
-
 ```bash
-# Required
-docker --version        # 20.10+
+docker --version         # 20.10+
 docker-compose --version # 2.0+
-python --version        # 3.10+
-
-# Optional (for development)
-git --version
-make --version
+python --version         # 3.10+
 ```
 
 ### One-Command Setup
-
 ```bash
 # Clone repository
 git clone https://github.com/yourusername/self-healing-mlops.git
 cd self-healing-mlops
 
-# Start everything
-make setup
-make start
+# Start all services (MLflow, PostgreSQL, API, Monitoring, Airflow)
+docker-compose up -d
+sleep 15
 
-# Verify
-make verify
-```
+# Initialize database
+docker exec postgres-mlops psql -U mlops -d mlops \
+  -f /docker-entrypoint-initdb.d/01_schema.sql
 
-### Manual Setup
-
-```bash
-# 1. Start infrastructure
-docker-compose up -d mlflow
-sleep 10
-
-# 2. Bootstrap reference data (one-time)
+# Bootstrap reference data for drift detection
 docker-compose run --rm bootstrap
 
-# 3. Train initial model
+# Train initial model
 docker-compose up trainer
 
-# 4. Promote to Production (via MLflow UI)
+# Promote model to Production via MLflow UI
 open http://localhost:5000
-
-# 5. Start services
-docker-compose up -d api monitoring
-
-# 6. Test prediction
-curl -X POST http://localhost:8000/predict \
-  -H "Content-Type: application/json" \
-  -d @tests/fixtures/sample_input.json
+# Navigate: Models → credit-risk-model → Latest version → Transition to Production
 ```
 
-### Expected Output
+### Verify Installation
+```bash
+# Check services
+docker-compose ps
 
+# Test API
+curl -X POST http://localhost:8000/predict \
+  -H "Content-Type: application/json" \
+  -d '{
+    "RevolvingUtilizationOfUnsecuredLines": 0.77,
+    "age": 45,
+    "NumberOfTime30_59DaysPastDueNotWorse": 2,
+    "DebtRatio": 0.80,
+    "MonthlyIncome": 9120,
+    "NumberOfOpenCreditLinesAndLoans": 13,
+    "NumberOfTimes90DaysLate": 0,
+    "NumberRealEstateLoansOrLines": 6,
+    "NumberOfTime60_89DaysPastDueNotWorse": 0,
+    "NumberOfDependents": 2
+  }'
+```
+
+**Expected Response:**
 ```json
 {
   "prediction": 0,
@@ -209,178 +141,54 @@ curl -X POST http://localhost:8000/predict \
 ---
 
 ## 📂 Project Structure
-
 ```
 self-healing-mlops/
+├── src/
+│   ├── api_mlflow.py              # FastAPI prediction service
+│   ├── train_model_mlflow.py      # Model training
+│   ├── storage/                   # Prediction & label storage
+│   ├── analytics/                 # Drift detection & metrics
+│   ├── monitoring/                # Monitoring jobs
+│   ├── retraining/                # Shadow training & gates
+│   └── orchestration/             # Airflow DAGs
 │
-├── 📄 README.md                          # This file
-├── 🐳 docker-compose.yml                 # Multi-service orchestration
-├── 📋 Dockerfile                         # Container definition
-├── ⚙️ pyproject.toml                     # Python config
-├── 🔧 Makefile                           # Automation commands
+├── tests/
+│   ├── unit/                      # Unit tests (drift, gates, metrics)
+│   └── integration/               # API & workflow tests
 │
-├── 🌐 src/                               # Source code
-│   ├── api_mlflow.py                    # FastAPI service
-│   ├── train_model_mlflow.py            # Model training
-│   │
-│   ├── 💾 storage/
-│   │   ├── prediction_logger.py         # Append-only logging
-│   │   └── label_store.py               # Ground truth storage
-│   │
-│   ├── 📊 analytics/
-│   │   ├── proxy_metrics.py             # Label-free metrics
-│   │   ├── drift_detection.py           # Evidently wrapper
-│   │   └── model_evaluator.py           # True performance
-│   │
-│   ├── 🔍 monitoring/
-│   │   └── monitoring_job.py            # Batch processor
-│   │
-│   ├── 🔄 retraining/
-│   │   ├── shadow_trainer.py            # Train candidates
-│   │   ├── evaluation_gate.py           # Decision logic
-│   │   └── model_promoter.py            # Safe deployment
-│   │
-│   ├── ⏰ orchestration/
-│   │   ├── scheduler.py                 # Simple scheduler
-│   │   └── retraining_orchestrator.py   # Airflow DAG
-│   │
-│   └── 🛠️ utils/
-│       └── dataset_fingerprint.py       # Data versioning
+├── docs/
+│   ├── architecture.md            # System design & diagrams
+│   ├── api.md                     # API reference
+│   ├── evaluation_gates.md        # Retraining decision logic
+│   └── runbook.md                 # Operations guide
 │
-├── 🧪 tests/                             # Test suite
-│   ├── conftest.py                      # Pytest fixtures
-│   ├── unit/                            # Unit tests
-│   ├── integration/                     # Integration tests
-│   └── fixtures/                        # Test data
+├── monitoring/                    # Monitoring outputs
+│   ├── reference/                 # Frozen baseline (immutable)
+│   ├── predictions/               # Prediction logs
+│   └── reports/                   # Drift reports (HTML)
 │
-├── 📁 data/                              # Training data
-│   └── cs-training.csv
-│
-├── 📦 models/                            # Local model storage
-│
-├── 📊 monitoring/                        # Monitoring outputs
-│   ├── reference/                       # Frozen baseline
-│   ├── predictions/                     # Logged predictions
-│   ├── labels/                          # Ground truth
-│   ├── metrics/                         # Analysis results
-│   └── reports/                         # Drift reports
-│
-├── 🔄 airflow/                           # Airflow setup
-│   ├── dags/
-│   └── config/
-│
-├── 📚 docs/                              # Documentation
-│   ├── architecture.md                  # System design
-│   ├── api.md                           # API reference
-│   └── runbook.md                       # Operations guide
-│
-└── 🔧 .github/                           # CI/CD
-    └── workflows/
-        └── ci-cd.yml                    # GitHub Actions
+├── docker-compose.yml             # Multi-service orchestration
+└── .github/workflows/ci-cd.yml    # GitHub Actions pipeline
 ```
 
 ---
 
-## 📖 Phase-by-Phase Guide
+## 🗄️ Services & Ports
 
-### Phase 1: Foundation (Week 1-2)
-**Goal:** Basic prediction service
+| Service | URL | Purpose |
+|---------|-----|---------|
+| **FastAPI** | http://localhost:8000 | Prediction API + docs |
+| **MLflow** | http://localhost:5000 | Experiment tracking |
+| **Airflow** | http://localhost:8080 | Workflow orchestration |
+| **PgAdmin** | http://localhost:5050 | Database UI |
+| **PostgreSQL** | localhost:5433 | Predictions & labels storage |
 
-```bash
-# Train model
-python src/train_model_mlflow.py
-
-# Start API
-python src/api_mlflow.py
-
-# Test
-curl http://localhost:8000/predict -d @sample.json
-```
-
-**✅ Deliverable:** Working FastAPI service with trained model
-
----
-
-### Phase 2: Docker + MLflow (Week 3-4)
-**Goal:** Reproducible infrastructure
-
-```bash
-# Bootstrap
-docker-compose up -d mlflow
-docker-compose up trainer
-
-# Verify
-open http://localhost:5000
-```
-
-**✅ Deliverable:** Containerized training + MLflow tracking
-
----
-
-### Phase 3: Monitoring (Week 5-6)
-**Goal:** Drift detection
-
-```bash
-# Bootstrap reference
-docker-compose run --rm bootstrap
-
-# Start monitoring
-docker-compose up -d monitoring
-
-# Check results
-ls monitoring/metrics/monitoring_results/
-```
-
-**✅ Deliverable:** Automated drift detection running
-
----
-
-### Phase 4: Retraining (Week 7-8)
-**Goal:** Automated model updates
-
-```bash
-# Trigger retraining
-docker-compose exec airflow airflow dags trigger retraining_pipeline
-
-# Monitor
-docker-compose logs -f airflow
-```
-
-**✅ Deliverable:** Self-healing pipeline with evaluation gates
-
----
-
-### Phase 5: Orchestration (Week 9-10)
-**Goal:** Full automation
-
-**✅ Deliverable:** End-to-end automated workflow
-
----
-
-### Phase 6: Production Polish (Week 11-12)
-**Goal:** Portfolio-ready project
-
-```bash
-# Run tests
-pytest tests/ -v
-
-# Check code quality
-black src/ tests/
-flake8 src/ tests/
-mypy src/
-
-# Verify CI/CD
-git push  # Triggers GitHub Actions
-```
-
-**✅ Deliverable:** Production-grade codebase
+**Airflow Login:** `admin` / `admin`
+**PgAdmin Login:** `admin@admin.com` / `admin`
 
 ---
 
 ## 🧪 Testing
-
-### Run All Tests
-
 ```bash
 # All tests with coverage
 pytest tests/ -v --cov=src --cov-report=html
@@ -388,240 +196,176 @@ pytest tests/ -v --cov=src --cov-report=html
 # Unit tests only
 pytest tests/unit/ -v
 
-# Integration tests only
+# Integration tests
 pytest tests/integration/ -v
 
-# Specific test
-pytest tests/unit/test_evaluation_gate.py::TestEvaluationGate::test_gate_passes_on_good_shadow_model -v
-```
-
-### Test Coverage
-
-```bash
-# Generate coverage report
-pytest --cov=src --cov-report=html
-
-# View report
+# View coverage report
 open htmlcov/index.html
 ```
 
-### Pre-commit Hooks
-
-```bash
-# Install hooks
-pre-commit install
-
-# Run manually
-pre-commit run --all-files
-```
+**Current Coverage:** 87.5% (113/129 statements)
 
 ---
 
-## 🔄 CI/CD Pipeline
+## 📊 Monitoring & Operations
 
-### GitHub Actions Workflow
+### Daily Health Check
+```bash
+# Check all services
+docker-compose ps
 
-```yaml
-Trigger: Push to main/develop
-  ↓
-├─ Data Validation (Pandera schemas)
-├─ Code Quality (Black, Flake8, MyPy)
-├─ Unit Tests (pytest)
-├─ Integration Tests
-├─ Model Training & Validation
-├─ Docker Build
-└─ Deploy (on main only)
+# API health
+curl http://localhost:8000/health | jq
+
+# Prediction stats
+curl http://localhost:8000/monitoring/stats | jq
+
+# Database row count
+docker exec postgres-mlops psql -U mlops -d mlops \
+  -c "SELECT COUNT(*) FROM prediction_logs;"
 ```
 
-### CI Status Badges
+### View Drift Reports
+```bash
+# Latest drift report
+ls -t monitoring/reports/drift_reports/*.html | head -1 | xargs open
 
-![CI](https://github.com/yourusername/self-healing-mlops/workflows/CI/badge.svg)
-![Coverage](https://codecov.io/gh/yourusername/self-healing-mlops/branch/main/graph/badge.svg)
+# Monitoring results
+cat monitoring/metrics/monitoring_results/monitoring_*.json | jq
+```
+
+### Common Operations
+```bash
+# Restart service
+docker-compose restart api
+
+# View logs
+docker-compose logs -f monitoring
+
+# Trigger retraining (Airflow)
+docker exec airflow-scheduler airflow dags trigger retraining_pipeline
+
+# Rollback model (via MLflow UI)
+# Navigate to Models → Select previous version → Transition to Production
+```
+
+**[📋 Full Operations Runbook](docs/runbook.md)**
 
 ---
 
 ## ⚙️ Configuration
 
-### Environment Variables
-
-```bash
-# MLflow
-MLFLOW_TRACKING_URI=http://mlflow:5000
+Key environment variables (see `docker-compose.yml`):
+```yaml
+# Database
+POSTGRES_HOST: postgres-mlops
+MLOPS_DB_NAME: mlops
 
 # Monitoring
-MONITORING_INTERVAL=300        # 5 minutes
-MONITORING_LOOKBACK=24         # 24 hours
+MONITORING_INTERVAL: 300          # 5 minutes
+MONITORING_LOOKBACK: 24           # 24 hours
 
-# Retraining
-MIN_F1_IMPROVEMENT_PCT=2.0     # Require 2% improvement
-MAX_BRIER_DEGRADATION=0.01     # Calibration tolerance
-MIN_SAMPLES_FOR_DECISION=200   # Statistical validity
+# Retraining Gates
+MIN_F1_IMPROVEMENT_PCT: 2.0       # Require 2% F1 improvement
+MAX_BRIER_DEGRADATION: 0.01       # Max calibration loss
+MIN_SAMPLES_FOR_DECISION: 200     # Statistical validity
 ```
 
-### Configuration Files
-
-- **pyproject.toml** - Black, pytest, mypy, coverage config
-- **.flake8** - Flake8 linting rules
-- **mypy.ini** - MyPy type checking config
-- **.editorconfig** - Editor consistency
-- **.pre-commit-config.yaml** - Git pre-commit hooks
-
----
-
-## 📊 Monitoring
-
-### Dashboards
-
-- **MLflow UI:** http://localhost:5000
-- **API Docs:** http://localhost:8000/docs
-- **Airflow UI:** http://localhost:8080
-
-### Key Metrics
-
-```bash
-# Prediction stats
-curl http://localhost:8000/monitoring/stats | jq
-
-# Latest monitoring results
-cat monitoring/metrics/monitoring_results/monitoring_*.json | jq
-
-# Drift reports
-open monitoring/reports/drift_reports/drift_report_*.html
-```
-
-### Alerts & Notifications
-
-*Note: Alert configuration is environment-specific (PagerDuty, Slack, etc.)*
-
----
-
-## 🔧 Troubleshooting
-
-### Common Issues
-
-<details>
-<summary><b>Services won't start</b></summary>
-
-```bash
-# Check Docker
-docker-compose ps
-
-# View logs
-docker-compose logs mlflow
-docker-compose logs api
-
-# Restart clean
-docker-compose down -v
-docker-compose up -d
-```
-</details>
-
-<details>
-<summary><b>"Insufficient samples" error</b></summary>
-
-```bash
-# Check prediction count
-curl http://localhost:8000/monitoring/stats
-
-# Generate test predictions
-bash scripts/generate_test_predictions.sh 250
-```
-</details>
-
-<details>
-<summary><b>Tests failing</b></summary>
-
-```bash
-# Install dev dependencies
-pip install -r requirements-dev.txt
-
-# Run with verbose output
-pytest tests/ -v -s
-
-# Check specific failure
-pytest tests/unit/test_drift_detection.py -v
-```
-</details>
-
-### Debug Mode
-
-```bash
-# Enable debug logging
-export LOG_LEVEL=DEBUG
-
-# Run service with debug
-docker-compose up api  # no -d flag
-```
+**[🔍 Evaluation Gate Details](docs/evaluation_gates.md)**
 
 ---
 
 ## 📚 Documentation
 
-- [📖 Architecture Overview](docs/architecture.md)
-- [🌐 API Reference](docs/api.md)
-- [📋 Operations Runbook](docs/runbook.md)
-- [🔍 Decision Gate Criteria](docs/evaluation_gates.md)
-- [🐛 Troubleshooting Guide](docs/troubleshooting.md)
+| Document | Description |
+|----------|-------------|
+| [Architecture](docs/architecture.md) | System design with 8 Mermaid diagrams |
+| [API Reference](docs/api.md) | Complete endpoint documentation |
+| [Evaluation Gates](docs/evaluation_gates.md) | Retraining decision criteria |
+| [Operations Runbook](docs/runbook.md) | Day-to-day operations guide |
+| [Troubleshooting](docs/troubleshooting.md) | Common issues & solutions |
+
+---
+
+## 🔄 CI/CD Pipeline
+
+**GitHub Actions Workflow:**
+```
+Push to main/develop
+  ↓
+├─ Code Quality (Black, Flake8, MyPy)
+├─ Data Validation (Pandera schemas)
+├─ Unit Tests (pytest)
+├─ Integration Tests
+├─ Docker Build
+└─ Deploy (main branch only)
+```
+
+![CI](https://github.com/nimish1106/self-healing-mlops/workflows/CI/badge.svg)
+
+---
+
+## 🐛 Troubleshooting
+
+**Services won't start:**
+```bash
+docker-compose down -v
+docker-compose up -d
+docker exec postgres-mlops psql -U mlops -d mlops \
+  -f /docker-entrypoint-initdb.d/01_schema.sql
+```
+
+**"Insufficient samples" error:**
+```bash
+# Generate test predictions
+for i in {1..250}; do curl -X POST http://localhost:8000/predict \
+  -H "Content-Type: application/json" -d @tests/fixtures/sample_input.json; done
+```
+
+**Database connection issues:**
+```bash
+docker logs postgres-mlops
+docker-compose restart postgres-mlops
+```
+
+**[📖 Full Troubleshooting Guide](docs/troubleshooting.md)**
 
 ---
 
 ## 🤝 Contributing
-
 ```bash
-# Fork repository
-git clone https://github.com/yourusername/self-healing-mlops.git
-
-# Create branch
+# Create feature branch
 git checkout -b feature/amazing-feature
 
 # Make changes and test
 pytest tests/ -v
-
-# Ensure code quality
 black src/ tests/
 flake8 src/ tests/
 
-# Commit
+# Commit and push
 git commit -m "Add amazing feature"
-
-# Push
 git push origin feature/amazing-feature
-
-# Open Pull Request
 ```
 
----
-
-## 📄 License
-
-This project is licensed under the MIT License - see [LICENSE](LICENSE) file.
 
 ---
 
 ## 🙏 Acknowledgments
 
-- **Dataset:** "Give Me Some Credit" from Kaggle
-- **MLflow:** Experiment tracking and model registry
-- **Evidently AI:** Drift detection framework
-- **FastAPI:** Modern Python API framework
+- **Dataset:** [Give Me Some Credit](https://www.kaggle.com/c/GiveMeSomeCredit) (Kaggle)
+- **MLflow:** Experiment tracking framework
+- **Evidently AI:** Open-source ML monitoring
+- **FastAPI:** Modern Python web framework
 
 ---
 
-## 📊 Project Stats
-
-![Lines of Code](https://img.shields.io/badge/Lines%20of%20Code-5000%2B-blue)
-![Test Coverage](https://img.shields.io/badge/Coverage-85%25-success)
-![Docker Images](https://img.shields.io/badge/Docker%20Images-4-2496ED)
-![CI/CD](https://img.shields.io/badge/CI%2FCD-Automated-success)
-
----
 
 <div align="center">
 
-**Built with discipline** • **Deployed with confidence** • **Monitored with precision**
+**Built with discipline • Deployed with confidence • Monitored with precision**
 
 ⭐ Star this repo if you find it useful!
 
-[Report Bug](https://github.com/yourusername/self-healing-mlops/issues) • [Request Feature](https://github.com/yourusername/self-healing-mlops/issues)
+[Report Bug](https://github.com/nimish1106/self-healing-mlops/issues) • [Request Feature](https://github.com/nimish1106/self-healing-mlops/issues) • [Documentation](docs/)
 
 </div>
