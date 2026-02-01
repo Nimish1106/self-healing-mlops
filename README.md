@@ -48,24 +48,7 @@ A **production-ready MLOps pipeline** that continuously monitors model performan
 ---
 
 ## 🏗️ Architecture
-```mermaid
-graph TB
-    A[User Request] --> B[FastAPI]
-    B --> C[Production Model]
-    C --> D[PostgreSQL]
-
-    E[Monitoring Job] --> F{Drift > 30%?}
-    F -->|Yes| G[Train Shadow Model]
-    G --> H{Pass 6 Gates?}
-    H -->|Yes| I[Promote to Prod]
-    H -->|No| J[Archive + Log]
-
-    D --> E
-
-    style B fill:#4CAF50
-    style G fill:#FF9800
-    style H fill:#F44336
-```
+<img width="1920" height="1080" alt="Self- Healing MLOPs Pipline Architecture" src="https://github.com/user-attachments/assets/ed99e993-d58e-4e58-94d7-632d5d592858" />
 
 **[📖 Detailed Architecture](docs/architecture.md)** | **[🔍 Evaluation Gates](docs/evaluation_gates.md)**
 
