@@ -37,19 +37,19 @@ spec:
           value: /app:/app/src
 
         # ---------------- DATABASE CONFIG ----------------
-        - name: DB_HOST
+        - name: POSTGRES_HOST
           value: mlops-postgres-service
 
-        - name: DB_PORT
+        - name: POSTGRES_PORT
           value: "5432"
 
-        - name: DB_NAME
+        - name: POSTGRES_DB
           value: mlops
 
-        - name: DB_USER
+        - name: POSTGRES_USER
           value: mlops
 
-        - name: DB_PASSWORD
+        - name: POSTGRES_PASSWORD
           value: mlops
 
         command:
@@ -69,6 +69,9 @@ spec:
         - name: data-volume
           mountPath: /app/data
 
+        - name: reference-volume
+          mountPath: /app/monitoring/reference
+
       volumes:
       - name: monitoring-volume
         hostPath:
@@ -83,4 +86,9 @@ spec:
       - name: data-volume
         hostPath:
           path: /home/ubuntu/self-healing-mlops/data
-          type: Directory
+          type: DirectoryOrCreate
+
+      - name: reference-volume
+        hostPath:
+          path: /home/ubuntu/self-healing-mlops/monitoring/reference
+          type: DirectoryOrCreate
