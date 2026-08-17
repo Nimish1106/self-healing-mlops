@@ -70,7 +70,7 @@ class MonitoringJob:
         df_recent = df[df["timestamp"] > cutoff]
         return df_recent
 
-    def run(self, lookback_hours: int = 24) -> Dict[str, Any]:
+    def run_monitoring_job(self, lookback_hours: int = 24) -> Dict[str, Any]:
         run_timestamp = datetime.now()
         predictions = self.load_predictions(lookback_hours)
 
@@ -108,21 +108,33 @@ class MonitoringJob:
             }
 
             drift_summary_ref = self._save_drift_artifacts(drift_results, run_timestamp)
+            results["drift_metrics"] = drift_summary
+            results["drift_summary_ref"] = drift_summary_ref
 
         except Exception as e:
+            logger.exception(f"Drift detection failed in monitoring job: {e}")
             drift_summary = {"status": "error", "error": str(e)}
+            results["drift_metrics"] = drift_summary
 
         # --- WRITE TO DATABASE ---
         self._write_to_database(
             timestamp=run_timestamp,
             lookback_hours=lookback_hours,
             num_predictions=len(predictions),
-            proxy_metrics=proxy_results,  # ✅ FIXED
+            proxy_metrics=proxy_results,
             drift_summary=drift_summary,
             drift_summary_ref=drift_summary_ref,
         )
 
         return results
+
+    def _save_drift_artifacts(
+        self, drift_results: Dict[str, Any], timestamp: datetime = None
+    ) -> Any:
+        """
+        Extract or ensure drift artifact reference from drift detection results.
+        """
+        return drift_results.get("drift_summary_ref")
 
     def _write_to_database(
         self,
@@ -152,3 +164,14 @@ class MonitoringJob:
             },
             drift_summary_ref=drift_summary_ref,
         )
+
+
+_monitoring_job_instance: MonitoringJob | None = None
+
+
+def run_monitoring_job(lookback_hours: int = 24) -> Dict[str, Any]:
+    """Module-level entrypoint used by the scheduler service."""
+    global _monitoring_job_instance
+    if _monitoring_job_instance is None:
+        _monitoring_job_instance = MonitoringJob()
+    return _monitoring_job_instance.run_monitoring_job(lookback_hours=lookback_hours)

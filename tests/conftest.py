@@ -4,12 +4,16 @@ Pytest configuration and shared fixtures.
 Fixtures provide reusable test data and setup.
 """
 
+import os
 import pytest
 import pandas as pd
 import numpy as np
 from pathlib import Path
 import tempfile
 import shutil
+
+# Enable testing mode for test suite
+os.environ["TESTING"] = "true"
 
 
 @pytest.fixture

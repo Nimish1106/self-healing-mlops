@@ -174,26 +174,30 @@ class ModelPromoter:
 
             self._save_decision_record(rejection_record)
 
-            # ✅ NEW: Write rejected model version to database
+            # ✅ Write rejected model version to database
             if shadow_versions:
                 try:
                     model_repo = ModelVersionsRepository()
-                    model_repo.insert(
-                        timestamp=pd.Timestamp.now(),
-                        version=str(shadow_versions[0].version),
+                    eval_metrics = evaluation_decision.get("metrics", {})
+                    trigger_context = evaluation_decision.get("trigger_context", {})
+                    trigger_reason = trigger_context.get("trigger_reason", "rejected")
+
+                    model_repo.insert_or_update(
                         model_name=self.model_name,
-                        mlflow_run_id=shadow_run_id,
-                        status="rejected",
-                        metrics={
-                            "evaluation_decision": evaluation_decision,
-                            "rejected_by": rejected_by,
+                        version=int(shadow_versions[0].version),
+                        stage="Archived",
+                        training_context={
+                            "archived_at": datetime.now().isoformat(),
+                            "training_run_id": shadow_run_id,
+                            "trigger_reason": trigger_reason,
                         },
-                        metadata={"action": "reject", "reason": "Failed evaluation gate"},
+                        metrics=eval_metrics,
+                        decision_id=None,
                     )
                     logger.info("✅ Rejected model version written to database")
                 except Exception as e:
                     logger.warning(
-                        f"Failed to write rejected model version to database (non-critical): {e}"
+                        f"Failed to write rejected model version to database: {e}"
                     )
 
             return {"success": True, "action": "rejected", "record": rejection_record}

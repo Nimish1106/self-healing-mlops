@@ -63,11 +63,14 @@ docker-compose --version # 2.0+
 python --version         # 3.10+
 ```
 
-### One-Command Setup
+### Setup (Build Locally)
 ```bash
 # Clone repository
 git clone https://github.com/yourusername/self-healing-mlops.git
 cd self-healing-mlops
+
+# Create env file
+cp .env.example .env
 
 # Start all services (MLflow, PostgreSQL, API, Monitoring, Airflow)
 docker-compose up -d
@@ -83,10 +86,53 @@ docker-compose run --rm bootstrap
 # Train initial model
 docker-compose up trainer
 
-# Promote model to Production via MLflow UI
-open http://localhost:5000
-# Navigate: Models → credit-risk-model → Latest version → Transition to Production
+# Note: trainer auto-registers and promotes the model to Production
 ```
+
+### Setup (Share Mode With Prebuilt Images)
+Use this mode when sharing with a friend so they only need to pull images.
+
+```bash
+# Clone repository
+git clone https://github.com/nimish1106/self-healing-mlops.git
+cd self-healing-mlops
+
+# Create env file from template
+cp .env.example .env
+
+# Pull all images declared in share compose file
+docker compose -f docker-compose.share.yml pull
+
+# Start core infra first
+docker compose -f docker-compose.share.yml up -d postgres postgres-mlops mlflow airflow-webserver airflow-scheduler pgadmin
+
+# Initialize reference data and train initial model
+docker compose -f docker-compose.share.yml run --rm bootstrap
+docker compose -f docker-compose.share.yml up trainer
+
+# Start API and monitoring after model is in Production
+docker compose -f docker-compose.share.yml up -d api monitoring
+```
+
+### Restore Images/Containers On Your Own Machine
+If local images/containers were removed, run:
+
+```bash
+docker pull nimish1106/sh-mlops-base:v3
+docker pull nimish1106/sh-mlops-airflow-scheduler:v1
+docker pull nimish1106/sh-mlops-airflow-web:v1
+docker pull ghcr.io/mlflow/mlflow:v2.9.2
+docker pull postgres:13
+docker pull dpage/pgadmin4
+
+cp .env.example .env
+docker compose -f docker-compose.share.yml up -d
+docker compose -f docker-compose.share.yml run --rm bootstrap
+docker compose -f docker-compose.share.yml up trainer
+docker compose -f docker-compose.share.yml up -d api monitoring
+```
+
+Detailed release checklist and friend handoff guide: [docs/release_handoff.md](docs/release_handoff.md)
 
 ### Verify Installation
 ```bash

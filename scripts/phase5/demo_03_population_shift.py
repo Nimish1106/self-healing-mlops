@@ -57,7 +57,7 @@ def main():
     drift_data = injector.inject_population_shift(
         data=drift_data,
         target_column="SeriousDlqin2yrs",
-        new_positive_ratio=0.60,  # Increase to 60%
+        new_positive_ratio=0.20,  # Increase to 20%
         reason="Simulated economic recession - default rate increases from 7% to 20%",
     )
 

@@ -17,8 +17,9 @@ echo "This demo will:"
 echo "  1. Establish baseline (6 min)"
 echo "  2. Inject covariate shift (6 min)"
 echo "  3. Inject population shift (6 min)"
-echo "  4. Inject concept drift (6 min)"
+echo "  4. Demonstrate manual retraining trigger (2 min)"
 echo "  5. Demonstrate rollback (2 min)"
+echo "  6. Run evaluation audit (1 min)"
 echo ""
 echo "Total estimated time: ~35 minutes"
 echo ""
@@ -32,7 +33,7 @@ echo "==========================================================================
 echo "DEMO 1/5: BASELINE ESTABLISHMENT"
 echo "================================================================================"
 echo ""
-docker-compose exec api python scripts/phase5/demo_01_baseline.py
+docker compose exec api python scripts/phase5/demo_01_baseline.py
 
 echo ""
 echo "✅ Demo 1 complete. Baseline established."
@@ -47,7 +48,7 @@ echo "==========================================================================
 echo "DEMO 2/5: COVARIATE SHIFT INJECTION"
 echo "================================================================================"
 echo ""
-docker-compose exec api python scripts/phase5/demo_02_covariate_shift.py
+docker compose exec api python scripts/phase5/demo_02_covariate_shift.py
 
 echo ""
 echo "✅ Demo 2 complete. Covariate shift injected."
@@ -62,7 +63,7 @@ echo "==========================================================================
 echo "DEMO 3/5: POPULATION SHIFT INJECTION"
 echo "================================================================================"
 echo ""
-docker-compose exec api python scripts/phase5/demo_03_population_shift.py
+docker compose exec api python scripts/phase5/demo_03_population_shift.py
 
 echo ""
 echo "✅ Demo 3 complete. Population shift injected."
@@ -70,17 +71,17 @@ echo ""
 read -p "Press Enter to continue to Demo 4..."
 
 # ============================================================
-# Demo 4: Concept Drift
+# Demo 4: Manual Trigger
 # ============================================================
 echo ""
 echo "================================================================================"
-echo "DEMO 4/5: CONCEPT DRIFT INJECTION"
+echo "DEMO 4/5: MANUAL RETRAINING TRIGGER"
 echo "================================================================================"
 echo ""
-docker-compose exec api python scripts/phase5/demo_04_concept_drift.py
+docker compose exec api python scripts/phase5/demo_04_manual_trigger.py
 
 echo ""
-echo "✅ Demo 4 complete. Concept drift injected."
+echo "✅ Demo 4 complete. Manual trigger workflow demonstrated."
 echo ""
 read -p "Press Enter to continue to Demo 5..."
 
@@ -92,10 +93,25 @@ echo "==========================================================================
 echo "DEMO 5/5: ROLLBACK & REJECTION DEMONSTRATION"
 echo "================================================================================"
 echo ""
-docker-compose exec api python scripts/phase5/demo_05_rollback.py
+docker compose exec api python scripts/phase5/demo_05_rollback.py
 
 echo ""
 echo "✅ Demo 5 complete."
+echo ""
+read -p "Press Enter to continue to Demo 6..."
+
+# ============================================================
+# Demo 6: Evaluation Audit
+# ============================================================
+echo ""
+echo "================================================================================"
+echo "DEMO 6/6: EVALUATION AUDIT"
+echo "================================================================================"
+echo ""
+docker compose exec api python scripts/phase5/evaluation_audit.py
+
+echo ""
+echo "✅ Demo 6 complete."
 echo ""
 
 # ============================================================

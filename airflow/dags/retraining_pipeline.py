@@ -522,6 +522,24 @@ def run_evaluation_gate(**context):
         try:
             decisions_repo = RetrainingDecisionsRepository()
 
+            # Normalize data context
+            data_context = {}
+            if coverage_stats:
+                data_context = {
+                    "labeled_samples": (
+                        coverage_stats.get("labeled_predictions")
+                        if "labeled_predictions" in coverage_stats
+                        else coverage_stats.get("labeled_samples")
+                    ),
+                    "coverage_pct": (
+                        coverage_stats.get("coverage_rate", 0) * 100.0
+                        if "coverage_rate" in coverage_stats
+                        else coverage_stats.get(
+                            "coverage_pct", coverage_stats.get("label_coverage_pct", 0.0)
+                        )
+                    ),
+                }
+
             decisions_repo.insert(
                 timestamp=pd.Timestamp.now(),
                 trigger_reason=trigger_reason,
@@ -539,7 +557,7 @@ def run_evaluation_gate(**context):
                         drift_details.get("drifted_feature_names", []) if drift_details else []
                     ),
                 },
-                data_context=coverage_stats,
+                data_context=data_context,
                 decision_details={
                     "reason": "; ".join(decision["reason"]),
                     "failed_gate": (

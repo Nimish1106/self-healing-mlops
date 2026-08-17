@@ -7,8 +7,8 @@ Purpose:
 - Observe drift detection and retraining
 
 Drift type: Covariate Shift
-- MonthlyIncome scaled by 1.4 (40% increase)
-- Age shifted by +3 years (population aging)
+- MonthlyIncome scaled by 1.5 (50% increase)
+- Age shifted by +5 years (population aging)
 
 Expected outcome:
 - Drift detected by Evidently
@@ -18,6 +18,7 @@ Expected outcome:
 """
 
 import sys
+import json
 
 sys.path.append("/app")
 
@@ -47,21 +48,7 @@ def main():
     drift_data = df.sample(n=800, random_state=123)
     logger.info(f"Loaded {len(drift_data)} samples")
 
-    # Step 2: Inject covariate shift
-    logger.info("\n[Step 2/6] Injecting COVARIATE SHIFT...")
-    logger.info("Scenario: Economic improvement + population aging")
-
-    injector = DriftInjector(random_seed=42)
-
-    # Drift 1: Income increases (economic growth)
-    drift_data = injector.inject_covariate_shift_scaling(
-        data=drift_data,
-        feature="MonthlyIncome",
-        scale_factor=1.4,  # 40% increase
-        reason="Simulated economic improvement - average income rises",
-    )
-
-    # Step 2: Inject covariate shift (MORE AGGRESSIVE)
+    # Step 2: Inject covariate shift (AGGRESSIVE)
     logger.info("\n[Step 2/6] Injecting AGGRESSIVE COVARIATE SHIFT...")
     logger.info("Scenario: Major economic shift affecting multiple features")
 
@@ -166,7 +153,7 @@ def main():
     logger.info("\n[Step 6/6] Verifying drift was detected (monitoring only)...")
 
     # Check drift reports
-    drift_reports = sorted(Path("/app/monitoring/reports/drift_reports").glob("*.json"))
+    drift_reports = sorted(Path("/app/monitoring/drift/summaries").glob("drift_summary_*.json"))
     if drift_reports:
         latest_report = drift_reports[-1]
         logger.info(f"✅ Latest drift report: {latest_report.name}")
@@ -196,7 +183,7 @@ def main():
     logger.info("✅ COVARIATE SHIFT DEMO COMPLETE")
     logger.info("=" * 80)
     logger.info("\nWhat happened:")
-    logger.info("1. ✅ Drift injected (MonthlyIncome +40%, age +3 years)")
+    logger.info("1. ✅ Drift injected (MonthlyIncome +50%, age +5 years)")
     logger.info("2. ✅ Drift DETECTED by monitoring")
     logger.info("3. ✅ Drift logged in reports (for analysis)")
     logger.info("4. ✅ Drift did NOT trigger retraining (correct behavior)")

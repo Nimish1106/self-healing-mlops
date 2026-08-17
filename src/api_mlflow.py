@@ -1,25 +1,24 @@
 """
-Production API with prediction logging for Phase 3 monitoring.
+Production API with prediction logging for Phase 3 monitoring and Phase 2 reliability hardening.
 
-PHASE 3 RESPONSIBILITIES:
-- Serve predictions from Production model
-- Log predictions for monitoring
-- THAT'S IT
-
-NOT RESPONSIBLE FOR:
-- Computing metrics (monitoring job does this)
-- Detecting drift (monitoring job does this)
-- Deciding if model should be retrained (Phase 4)
+RESPONSIBILITIES:
+- Serve predictions from Production model with strict validation
+- Correlate requests and log predictions for monitoring
+- Provide lightweight /health (liveness) and thorough /ready (readiness) probes
+- Safe error handling: never leak stack traces, internal paths, or credentials
 """
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 import mlflow
 import mlflow.sklearn
 import numpy as np
 import os
+import uuid
+from pathlib import Path
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Dict, Any
 import logging
 import sys
 from src.storage.prediction_logger import get_prediction_logger
@@ -47,10 +46,40 @@ MODEL_NAME = "credit-risk-model"
 PRODUCTION_STAGE = "Production"
 
 app = FastAPI(
-    title="Credit Risk Prediction API (Phase 3)",
-    description="Self-Healing MLOps Pipeline - Monitoring-Enabled API",
-    version="3.0.0",
+    title="Credit Risk Prediction API",
+    description="Self-Healing MLOps Pipeline - Production Inference API",
+    version="3.1.0",
 )
+
+# CORS Configuration
+allowed_origins_raw = os.getenv("ALLOWED_ORIGINS", "*")
+allowed_origins = [origin.strip() for origin in allowed_origins_raw.split(",") if origin.strip()]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=allowed_origins if allowed_origins != ["*"] else ["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+    expose_headers=["X-Request-ID"],
+)
+
+
+@app.middleware("http")
+async def request_correlation_middleware(request: Request, call_next):
+    """
+    Request correlation middleware.
+    Attaches incoming or generated X-Request-ID to request.state and response headers.
+    """
+    request_id = request.headers.get("X-Request-ID")
+    if not request_id:
+        request_id = f"req_{uuid.uuid4().hex[:12]}"
+    request.state.request_id = request_id
+
+    response = await call_next(request)
+    response.headers["X-Request-ID"] = request_id
+    return response
+
 
 # Global state
 model = None
@@ -63,13 +92,9 @@ _last_checked_version = None  # Track if we've checked for updates
 def check_and_reload_model_if_needed():
     """
     Check if Production model has changed and reload if needed.
-
     This allows the API to pick up new models without restarting.
     Called before each prediction request.
-
-    Skipped during testing to avoid MLflow network calls.
     """
-    # Skip MLflow calls during testing (checked at runtime)
     if is_testing():
         return False
 
@@ -85,7 +110,6 @@ def check_and_reload_model_if_needed():
 
         latest_version = versions[0].version
 
-        # Check if version changed
         if latest_version != _last_checked_version:
             logger.info(f"Production model updated: v{_last_checked_version} → v{latest_version}")
             load_production_model()
@@ -103,9 +127,7 @@ def check_and_reload_model_if_needed():
 class PredictionInput(BaseModel):
     """
     Input schema for predictions.
-
     Pydantic handles validation automatically.
-    Invalid inputs are rejected before reaching our code.
     """
 
     RevolvingUtilizationOfUnsecuredLines: float
@@ -137,37 +159,66 @@ class PredictionInput(BaseModel):
 
 
 class PredictionOutput(BaseModel):
-    """
-    Output schema for predictions.
-
-    Phase 3: We return prediction + metadata.
-    We do NOT return confidence scores (those imply calibration we haven't validated).
-    """
+    """Output schema for predictions."""
 
     prediction: int = Field(..., description="0=no default risk, 1=default risk")
     probability: float = Field(..., ge=0.0, le=1.0, description="Probability of default")
     model_version: str = Field(..., description="Model version used for this prediction")
     prediction_id: str = Field(..., description="Unique ID for tracking this prediction")
     timestamp: str = Field(..., description="ISO timestamp of prediction")
+    request_id: Optional[str] = Field(None, description="Correlated request ID")
+
+
+class RootResponse(BaseModel):
+    """Root service information."""
+
+    service: str
+    version: str
+    phase: str
+    status: str
+    model_version: Optional[str] = None
 
 
 class HealthResponse(BaseModel):
-    """Health check response."""
+    """Liveness check response."""
 
     status: str
     model_loaded: bool
-    model_version: Optional[str]
+    model_version: Optional[str] = None
     model_stage: str
-    predictions_logged: int
+    predictions_logged: int = 0
     message: Optional[str] = None
+
+
+class ReadinessResponse(BaseModel):
+    """Production readiness check response."""
+
+    status: str
+    ready: bool
+    model_loaded: bool
+    model_version: Optional[str] = None
+    model_stage: Optional[str] = None
+    storage_accessible: bool
+    checks: Dict[str, bool]
+    message: Optional[str] = None
+
+
+class ModelInfoResponse(BaseModel):
+    """Model registry metadata response."""
+
+    model_name: str
+    model_version: Optional[str] = None
+    model_stage: str
+    model_uri: Optional[str] = None
+    run_id: Optional[str] = None
+    creation_timestamp: Optional[int] = None
+    last_updated_timestamp: Optional[int] = None
 
 
 def load_production_model():
     """
     Load Production model from MLflow Registry.
-
-    Phase 2 contract: Only load Production models.
-    If no Production model exists, API should not start.
+    If no Production model exists, API should log error and fail readiness.
     """
     global model, model_version, model_uri
 
@@ -176,7 +227,6 @@ def load_production_model():
         logger.info(f"Loading model: {model_uri}")
         model = mlflow.sklearn.load_model(model_uri)
 
-        # Get version info
         client = mlflow.tracking.MlflowClient()
         versions = client.get_latest_versions(MODEL_NAME, stages=[PRODUCTION_STAGE])
 
@@ -188,10 +238,11 @@ def load_production_model():
 
     except Exception as e:
         logger.error(f"❌ Failed to load Production model: {e}")
-        raise RuntimeError(
-            "Cannot start API: No model in Production stage. "
-            "Train a model and promote it to Production first."
-        )
+        if not is_testing():
+            raise RuntimeError(
+                "Cannot start API: No model in Production stage. "
+                "Train a model and promote it to Production first."
+            )
 
 
 @app.on_event("startup")
@@ -203,114 +254,142 @@ async def startup_event():
     logger.info("API STARTING UP")
     logger.info("=" * 70)
 
-    # Load model
-    load_production_model()
-    _last_checked_version = model_version  # Initialize tracking
+    try:
+        load_production_model()
+        _last_checked_version = model_version
+    except Exception as e:
+        logger.warning(f"Startup model load skipped/deferred: {e}")
 
-    # Initialize prediction logger
-    prediction_logger = get_prediction_logger()
-    logger.info("✅ Prediction logger initialized")
+    try:
+        prediction_logger = get_prediction_logger()
+        logger.info("✅ Prediction logger initialized")
+    except Exception as e:
+        logger.warning(f"Prediction logger initialization deferred: {e}")
 
     logger.info("=" * 70)
-    logger.info("API READY")
+    logger.info("API INITIALIZATION COMPLETE")
     logger.info("=" * 70)
 
 
-@app.get("/", response_model=dict)
+@app.get("/", response_model=RootResponse)
 async def root():
-    """
-    Root endpoint - basic health check.
-    """
-    return {
-        "service": "Credit Risk Prediction API",
-        "version": "3.0.0",
-        "phase": "3 - Monitoring",
-        "status": "healthy",
-        "model_version": model_version,
-    }
+    """Root endpoint - basic service identification."""
+    return RootResponse(
+        service="Credit Risk Prediction API",
+        version="3.1.0",
+        phase="3 - Monitoring",
+        status="healthy",
+        model_version=str(model_version) if model_version else None,
+    )
 
 
 @app.get("/health", response_model=HealthResponse)
 async def health():
     """
-    Detailed health check.
-
-    Used by Docker health checks and load balancers.
+    Liveness check probe.
+    Fast, non-blocking check verifying that the API process is alive and responsive.
     """
-    # Count predictions (read from file)
-    predictions_count = 0
-    try:
-        import pandas as pd
-        from pathlib import Path
-
-        pred_file = Path("/app/monitoring/predictions/predictions.csv")
-        if pred_file.exists():
-            df = pd.read_csv(pred_file)
-            predictions_count = len(df)
-    except Exception as e:
-        logger.warning(f"Could not count predictions: {e}")
-
     is_healthy = model is not None
-
     return HealthResponse(
         status="healthy" if is_healthy else "unhealthy",
         model_loaded=is_healthy,
-        model_version=model_version,
+        model_version=str(model_version) if model_version else None,
         model_stage=PRODUCTION_STAGE,
-        predictions_logged=predictions_count,
+        predictions_logged=0,
         message=None if is_healthy else "Model not loaded",
     )
 
 
-@app.get("/model/info")
+@app.get("/ready", response_model=ReadinessResponse)
+async def ready():
+    """
+    Readiness check probe.
+    Verifies only the dependencies required for serving live inference:
+    1. Model loaded in memory
+    2. Prediction storage directory accessible
+    """
+    model_ready = model is not None and model_version is not None
+
+    storage_ready = False
+    try:
+        storage_path = Path("/app/monitoring/predictions")
+        storage_path.mkdir(parents=True, exist_ok=True)
+        test_file = storage_path / ".ready_check"
+        test_file.touch(exist_ok=True)
+        storage_ready = True
+    except Exception as e:
+        logger.warning("Readiness check: storage inaccessible: %s", e)
+        storage_ready = False
+
+    is_ready = model_ready and storage_ready
+    checks = {
+        "model_loaded": model_ready,
+        "storage_accessible": storage_ready,
+    }
+
+    if not is_ready:
+        unready_reasons = []
+        if not model_ready:
+            unready_reasons.append("Model is not loaded")
+        if not storage_ready:
+            unready_reasons.append("Prediction storage is not accessible")
+
+        raise HTTPException(
+            status_code=503,
+            detail=f"Service not ready: {', '.join(unready_reasons)}",
+        )
+
+    return ReadinessResponse(
+        status="ready",
+        ready=True,
+        model_loaded=model_ready,
+        model_version=str(model_version),
+        model_stage=PRODUCTION_STAGE,
+        storage_accessible=storage_ready,
+        checks=checks,
+        message="Service is ready to serve predictions",
+    )
+
+
+@app.get("/model/info", response_model=ModelInfoResponse)
 async def model_info():
     """
-    Get current model information.
-
-    Useful for debugging and monitoring which model is serving.
+    Get current active Production model metadata.
     """
     if model is None:
         raise HTTPException(status_code=503, detail="Model not loaded")
 
-    client = mlflow.tracking.MlflowClient()
-    versions = client.get_latest_versions(MODEL_NAME, stages=[PRODUCTION_STAGE])
+    if not is_testing():
+        try:
+            client = mlflow.tracking.MlflowClient()
+            versions = client.get_latest_versions(MODEL_NAME, stages=[PRODUCTION_STAGE])
 
-    if versions:
-        version_info = versions[0]
-        return {
-            "model_name": MODEL_NAME,
-            "model_version": model_version,
-            "model_stage": PRODUCTION_STAGE,
-            "model_uri": model_uri,
-            "run_id": version_info.run_id,
-            "creation_timestamp": version_info.creation_timestamp,
-            "last_updated_timestamp": version_info.last_updated_timestamp,
-        }
+            if versions:
+                version_info = versions[0]
+                return ModelInfoResponse(
+                    model_name=MODEL_NAME,
+                    model_version=str(model_version),
+                    model_stage=PRODUCTION_STAGE,
+                    model_uri=model_uri,
+                    run_id=version_info.run_id,
+                    creation_timestamp=version_info.creation_timestamp,
+                    last_updated_timestamp=version_info.last_updated_timestamp,
+                )
+        except Exception as e:
+            logger.warning("Could not fetch extended MLflow metadata: %s", e)
 
-    return {
-        "model_name": MODEL_NAME,
-        "model_version": model_version,
-        "model_stage": PRODUCTION_STAGE,
-    }
+    return ModelInfoResponse(
+        model_name=MODEL_NAME,
+        model_version=str(model_version),
+        model_stage=PRODUCTION_STAGE,
+    )
 
 
 @app.post("/predict", response_model=PredictionOutput)
-async def predict(input_data: PredictionInput):
+async def predict(input_data: PredictionInput, request: Request):
     """
     Make prediction and log for monitoring.
-
-    PHASE 3 BEHAVIOR:
-    1. Check if Production model has been updated (reload if needed)
-    2. Make prediction
-    3. Log prediction (for monitoring job to analyze later)
-    4. Return result
-
-    We do NOT:
-    - Compute metrics here
-    - Check for drift here
-    - Decide if model should be retrained
-
-    Those are monitoring job responsibilities.
+    Safe error handling: internal details logged; safe generic error returned to client.
     """
     # Check if model has been updated and reload if needed
     check_and_reload_model_if_needed()
@@ -318,8 +397,10 @@ async def predict(input_data: PredictionInput):
     if model is None:
         raise HTTPException(status_code=503, detail="Model not loaded")
 
+    request_id = getattr(request.state, "request_id", None) or f"req_{uuid.uuid4().hex[:12]}"
+
     try:
-        # Prepare features (must match training order)
+        # Prepare features (canonical ordering matching training)
         features = np.array(
             [
                 [
@@ -338,15 +419,17 @@ async def predict(input_data: PredictionInput):
         )
 
         # Predict
-        prediction = int(model.predict(features)[0])
-        probability = float(model.predict_proba(features)[0, 1])
+        preds = np.asarray(model.predict(features))
+        prediction = int(preds[0])
 
-        # Generate prediction ID
+        probs = np.asarray(model.predict_proba(features))
+        probability = float(probs[0, 1] if probs.ndim == 2 else probs[1])
+
+        # Generate unique prediction ID correlated with request
         timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
         prediction_id = f"pred_{timestamp_str}"
 
         # Log prediction for monitoring
-        # This is append-only, no analytics here
         if prediction_logger:
             try:
                 prediction_logger.log_prediction(
@@ -357,31 +440,39 @@ async def predict(input_data: PredictionInput):
                     model_version=str(model_version),
                 )
             except Exception as e:
-                # Logging failure should not break predictions
-                # But we should know about it
-                logger.error(f"Failed to log prediction {prediction_id}: {e}")
+                logger.error(
+                    "Failed to log prediction %s (request_id=%s): %s",
+                    prediction_id,
+                    request_id,
+                    e,
+                    exc_info=True,
+                )
 
-        # Return result
         return PredictionOutput(
             prediction=prediction,
             probability=probability,
             model_version=str(model_version),
             prediction_id=prediction_id,
             timestamp=datetime.now().isoformat(),
+            request_id=request_id,
         )
 
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Prediction failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Prediction failed: {str(e)}")
+        logger.error(
+            "Prediction failed for request_id=%s: %s",
+            request_id,
+            e,
+            exc_info=True,
+        )
+        raise HTTPException(status_code=500, detail="Prediction failed")
 
 
 @app.get("/monitoring/stats")
 async def monitoring_stats():
     """
-    Get basic monitoring statistics.
-
-    This is a convenience endpoint for quick checks.
-    Real monitoring happens in the monitoring job.
+    Get basic monitoring statistics summary.
     """
     try:
         import pandas as pd
@@ -397,7 +488,6 @@ async def monitoring_stats():
         if len(df) == 0:
             return {"status": "no_predictions", "message": "Prediction log is empty"}
 
-        # Basic stats
         recent_100 = df.tail(100)
 
         return {
@@ -412,11 +502,12 @@ async def monitoring_stats():
         }
 
     except Exception as e:
-        logger.error(f"Failed to compute stats: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("Failed to compute stats: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to compute monitoring statistics")
 
 
 if __name__ == "__main__":
     import uvicorn
 
     uvicorn.run(app, host="0.0.0.0", port=8000)
+

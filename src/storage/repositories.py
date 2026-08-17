@@ -189,19 +189,57 @@ class RetrainingDecisionsRepository:
         )
         """
 
+        # Normalize data_context
+        labeled_samples = None
+        coverage_pct = None
+        if data_context:
+            if "labeled_samples" in data_context and data_context["labeled_samples"] is not None:
+                labeled_samples = int(data_context["labeled_samples"])
+            elif "labeled_predictions" in data_context and data_context["labeled_predictions"] is not None:
+                labeled_samples = int(data_context["labeled_predictions"])
+
+            if "coverage_pct" in data_context and data_context["coverage_pct"] is not None:
+                coverage_pct = float(data_context["coverage_pct"])
+            elif "label_coverage_pct" in data_context and data_context["label_coverage_pct"] is not None:
+                coverage_pct = float(data_context["label_coverage_pct"])
+            elif "coverage_rate" in data_context and data_context["coverage_rate"] is not None:
+                coverage_pct = float(data_context["coverage_rate"]) * 100.0
+
+        # Normalize drift_context
+        feature_drift_ratio = None
+        num_drifted_features = 0
+        dataset_drift_detected = False
+        drifted_features = []
+        if drift_context:
+            if "feature_drift_ratio" in drift_context and drift_context["feature_drift_ratio"] is not None:
+                feature_drift_ratio = float(drift_context["feature_drift_ratio"])
+            elif "drift_share" in drift_context and drift_context["drift_share"] is not None:
+                feature_drift_ratio = float(drift_context["drift_share"])
+
+            num_drifted_features = int(
+                drift_context.get(
+                    "num_drifted_features",
+                    len(drift_context.get("drifted_features", drift_context.get("drifted_feature_names", []))),
+                )
+            )
+            dataset_drift_detected = bool(drift_context.get("dataset_drift_detected", False))
+            drifted_features = drift_context.get(
+                "drifted_features", drift_context.get("drifted_feature_names", [])
+            )
+
         params = (
             decision_id,
             timestamp,
             trigger_reason,
             action,
-            drift_context.get("feature_drift_ratio"),  # ✅ RENAMED
-            drift_context.get("num_drifted_features"),
-            drift_context.get("dataset_drift_detected"),
-            drift_context.get("drifted_features", []),
-            data_context.get("labeled_samples"),  # ✅ NOW REQUIRED
-            data_context.get("coverage_pct"),  # ✅ NOW REQUIRED
+            feature_drift_ratio,
+            num_drifted_features,
+            dataset_drift_detected,
+            drifted_features,
+            labeled_samples,
+            coverage_pct,
             decision_details.get("failed_gate"),
-            decision_details.get("reason"),  # ✅ gate_results REMOVED
+            decision_details.get("reason"),
             decision_details.get("shadow_model_version"),
             decision_details.get("production_model_version"),
             decision_details.get("f1_improvement_pct"),
@@ -261,12 +299,44 @@ class ModelVersionsRepository:
     def __init__(self):
         self.db = get_db_manager()
 
+    def insert(
+        self,
+        model_name: str,
+        version: Any,
+        stage: str = "Archived",
+        training_context: Dict = None,
+        metrics: Dict = None,
+        decision_id: str = None,
+        **kwargs,
+    ):
+        """
+        Insert model version (delegates to insert_or_update with normalized parameters).
+        """
+        if training_context is None:
+            training_context = {}
+
+        if "mlflow_run_id" in kwargs and "training_run_id" not in training_context:
+            training_context["training_run_id"] = kwargs["mlflow_run_id"]
+        if "status" in kwargs and stage == "Archived":
+            stage = "Archived" if kwargs["status"] == "rejected" else kwargs["status"]
+        if "timestamp" in kwargs and "archived_at" not in training_context:
+            training_context["archived_at"] = str(kwargs["timestamp"])
+
+        return self.insert_or_update(
+            model_name=model_name,
+            version=int(version),
+            stage=stage,
+            training_context=training_context,
+            metrics=metrics,
+            decision_id=decision_id,
+        )
+
     def insert_or_update(
         self,
         model_name: str,
-        version: int,
+        version: Any,
         stage: str,
-        training_context: Dict,
+        training_context: Dict = None,
         metrics: Dict = None,
         decision_id: str = None,
     ):
@@ -276,6 +346,9 @@ class ModelVersionsRepository:
         ✅ Database enforces: Only ONE model can be in Production
         (Will raise error if violated)
         """
+        if training_context is None:
+            training_context = {}
+
         query = """
         INSERT INTO model_versions (
             model_name, version, stage,
@@ -295,19 +368,36 @@ class ModelVersionsRepository:
             updated_at = CURRENT_TIMESTAMP
         """
 
+        f1_score = None
+        brier_score = None
+        num_samples = None
+
+        if metrics:
+            if "primary_metrics" in metrics:
+                f1_score = metrics["primary_metrics"].get("f1_score")
+            elif "f1_score" in metrics:
+                f1_score = metrics.get("f1_score")
+
+            if "calibration_metrics" in metrics:
+                brier_score = metrics["calibration_metrics"].get("brier_score")
+            elif "brier_score" in metrics:
+                brier_score = metrics.get("brier_score")
+
+            num_samples = metrics.get("num_samples")
+
         params = (
             model_name,
-            version,
+            int(version),
             stage,
             training_context.get("trained_at"),
             training_context.get("promoted_at"),
             training_context.get("archived_at"),
             training_context.get("trigger_reason"),
             training_context.get("training_run_id"),
-            metrics.get("f1_score") if metrics else None,
-            metrics.get("brier_score") if metrics else None,
-            metrics.get("num_samples") if metrics else None,
-            training_context.get("feature_drift_ratio_at_training"),  # ✅ RENAMED
+            f1_score,
+            brier_score,
+            num_samples,
+            training_context.get("feature_drift_ratio_at_training"),
             decision_id,
         )
 

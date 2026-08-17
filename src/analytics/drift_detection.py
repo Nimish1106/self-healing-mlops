@@ -239,6 +239,9 @@ class DriftDetector:
         report.save_html(str(html_path))
 
         json_path = report_path / f"drift_summary_{timestamp}.json"
+        summary["drift_summary_ref"] = str(json_path)
+        summary["drift_report_ref"] = str(html_path)
+
         with open(json_path, "w") as f:
             json.dump(summary, f, indent=2)
 

@@ -146,7 +146,15 @@ class EvaluationGate:
 
         # Gate 2: Label coverage (✅ NEW)
         if coverage_stats:
-            coverage_pct = coverage_stats.get("coverage_rate", 0) * 100
+            if "coverage_pct" in coverage_stats and coverage_stats["coverage_pct"] is not None:
+                coverage_pct = float(coverage_stats["coverage_pct"])
+            elif "label_coverage_pct" in coverage_stats and coverage_stats["label_coverage_pct"] is not None:
+                coverage_pct = float(coverage_stats["label_coverage_pct"])
+            elif "coverage_rate" in coverage_stats and coverage_stats["coverage_rate"] is not None:
+                coverage_pct = float(coverage_stats["coverage_rate"]) * 100.0
+            else:
+                coverage_pct = 0.0
+
             gate2_pass = coverage_pct >= self.min_coverage_pct
 
             decision["gate_results"]["minimum_coverage"] = {

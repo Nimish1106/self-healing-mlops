@@ -200,7 +200,7 @@ def main():
     print("=" * 60)
 
     # --- LOAD DATA ---
-    data_path = "/app/data/raw/cs-training.csv"
+    data_path = "/app/data/cs-training.csv"
     print(f"\n📁 Loading data from: {data_path}")
 
     df = pd.read_csv(data_path)

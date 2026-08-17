@@ -13,6 +13,7 @@ Expected outcome:
 """
 
 import sys
+from pathlib import Path
 
 sys.path.append("/app")
 
@@ -99,7 +100,7 @@ def main():
     # Check drift reports
     import os
 
-    drift_reports = list(Path("/app/monitoring/reports/drift_reports").glob("*.json"))
+    drift_reports = list(Path("/app/monitoring/drift/summaries").glob("drift_summary_*.json"))
     logger.info(f"Drift reports generated: {len(drift_reports)}")
 
     logger.info("\n" + "=" * 80)

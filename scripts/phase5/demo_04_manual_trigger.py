@@ -19,6 +19,7 @@ sys.path.append("/app")
 from pathlib import Path
 import logging
 import json
+import os
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -27,6 +28,8 @@ logger = logging.getLogger(__name__)
 
 
 def main():
+        airflow_port = os.getenv("AIRFLOW_WEBSERVER_HOST_PORT", "8081")
+
     logger.info("=" * 80)
     logger.info("DEMO 4: MANUAL RETRAINING TRIGGER")
     logger.info("=" * 80)
@@ -83,15 +86,15 @@ def main():
     logger.info("\n[Step 4/4] Manual Trigger Methods...")
     logger.info("")
     logger.info("Method 1: Airflow UI")
-    logger.info("  1. Open http://localhost:8080")
+    logger.info(f"  1. Open http://localhost:{airflow_port}")
     logger.info("  2. Navigate to 'retraining_pipeline' DAG")
     logger.info("  3. Click 'Trigger DAG' (play button)")
     logger.info("")
     logger.info("Method 2: CLI")
     logger.info("  docker-compose exec airflow-scheduler airflow dags trigger retraining_pipeline")
     logger.info("")
-    logger.info("Method 3: Manual Script")
-    logger.info("  docker-compose exec api python scripts/run_retraining_workflow.py")
+    logger.info("Method 3: Airflow REST API (optional advanced)")
+    logger.info("  Trigger via Airflow API endpoint with auth if your team standard uses API-driven ops")
     logger.info("")
 
     logger.info("\n" + "=" * 80)
