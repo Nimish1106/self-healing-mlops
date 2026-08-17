@@ -35,7 +35,8 @@ class TestPhase6ConfigHardening:
         assert env_example_path.exists()
 
         content = env_example_path.read_text(encoding="utf-8")
-        assert "POSTGRES_PASSWORD=your_db_password" in content
+        assert "POSTGRES_PASSWORD=your_mlops_db_password" in content
+        assert "AIRFLOW_DB_PASSWORD=your_airflow_db_password" in content
         assert "SECRET_KEY=your-production-secret-key-here" in content
         assert "AIRFLOW_PASSWORD=your_airflow_password" in content
 
