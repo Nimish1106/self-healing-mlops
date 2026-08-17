@@ -279,6 +279,17 @@ async def startup_event():
     except Exception as e:
         logger.warning(f"Startup model load skipped/deferred: {e}")
 
+    if not is_testing():
+        try:
+            from src.storage.db_manager import get_db_manager
+            db = get_db_manager()
+            schema_path = Path("/app/scripts/db/schema.sql")
+            if schema_path.exists():
+                db.execute_script(str(schema_path))
+                logger.info("✅ Database schema verified on startup")
+        except Exception as e:
+            logger.warning(f"Database schema verification deferred: {e}")
+
     try:
         prediction_logger = get_prediction_logger()
         logger.info("✅ Prediction logger initialized")
@@ -529,13 +540,17 @@ async def monitoring_stats():
         df = pd.DataFrame(recent)
         recent_100 = df.head(100)
 
+        prob_std = float(recent_100["probability"].std()) if len(recent_100) > 1 else 0.0
+        if np.isnan(prob_std):
+            prob_std = 0.0
+
         return {
             "total_predictions": total_count,
             "recent_100": {
                 "count": len(recent_100),
                 "positive_rate": float(recent_100["prediction"].mean()),
                 "probability_mean": float(recent_100["probability"].mean()),
-                "probability_std": float(recent_100["probability"].std()),
+                "probability_std": prob_std,
             },
             "note": "For detailed monitoring, see monitoring job results",
         }

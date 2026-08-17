@@ -55,8 +55,8 @@ class MonitoringJob:
             return df
 
         if "timestamp" in df.columns:
-            df["timestamp"] = pd.to_datetime(df["timestamp"])
-            cutoff = pd.Timestamp.now() - pd.Timedelta(hours=lookback_hours)
+            df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
+            cutoff = pd.Timestamp.now(tz="UTC") - pd.Timedelta(hours=lookback_hours)
             df = df[df["timestamp"] > cutoff]
         return df
 

@@ -17,6 +17,30 @@ services:
       retries: 5
     restart: unless-stopped
 
+  # ============================================================
+  # PostgreSQL for MLOps (Operational Storage & Registry Lineage)
+  # ============================================================
+  postgres-mlops:
+    image: postgres:13
+    container_name: mlops-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-mlops}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mlops}
+      POSTGRES_DB: ${MLOPS_DB_NAME:-mlops}
+    volumes:
+      - postgres-mlops-volume:/var/lib/postgresql/data
+      - ./scripts/db/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql
+    ports:
+      - "5433:5432"
+    networks:
+      - mlops-network
+    healthcheck:
+      test: [ "CMD", "pg_isready", "-U", "${POSTGRES_USER:-mlops}" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
   mlflow:
     image: ghcr.io/mlflow/mlflow:v2.9.2
     container_name: mlflow-server
@@ -47,6 +71,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      postgres-mlops:
+        condition: service_healthy
       mlflow:
         condition: service_healthy
     environment:
@@ -58,6 +84,11 @@ services:
       - AIRFLOW__WEBSERVER__SECRET_KEY=${AIRFLOW_SECRET_KEY:-k9Yp3n7sQ8tBv2LxZ4mR0uF1wE6hC5aG}
       - AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION=True
       - MLFLOW_TRACKING_URI=${MLFLOW_TRACKING_URI:-http://mlflow:5000}
+      - POSTGRES_HOST=${POSTGRES_HOST:-postgres-mlops}
+      - POSTGRES_PORT=${POSTGRES_PORT:-5432}
+      - MLOPS_DB_NAME=${MLOPS_DB_NAME:-mlops}
+      - POSTGRES_USER=${POSTGRES_USER:-mlops}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-mlops}
     volumes:
       - ./airflow/dags:/opt/airflow/dags
       - ./src:/app/src
@@ -87,6 +118,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      postgres-mlops:
+        condition: service_healthy
       mlflow:
         condition: service_healthy
     environment:
@@ -97,6 +130,11 @@ services:
       - AIRFLOW__CORE__LOAD_EXAMPLES=False
       - MLFLOW_TRACKING_URI=${MLFLOW_TRACKING_URI:-http://mlflow:5000}
       - MLFLOW_HOME=/home/airflow/.mlflow
+      - POSTGRES_HOST=${POSTGRES_HOST:-postgres-mlops}
+      - POSTGRES_PORT=${POSTGRES_PORT:-5432}
+      - MLOPS_DB_NAME=${MLOPS_DB_NAME:-mlops}
+      - POSTGRES_USER=${POSTGRES_USER:-mlops}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-mlops}
     volumes:
       - ./airflow/dags:/opt/airflow/dags
       - ./src:/app/src
@@ -116,6 +154,8 @@ services:
     ports:
       - "8000:8000"
     depends_on:
+      postgres-mlops:
+        condition: service_healthy
       mlflow:
         condition: service_healthy
     environment:
@@ -146,6 +186,10 @@ services:
     depends_on:
       api:
         condition: service_healthy
+      postgres-mlops:
+        condition: service_healthy
+      mlflow:
+        condition: service_healthy
     environment:
       - MLFLOW_TRACKING_URI=${MLFLOW_TRACKING_URI:-http://mlflow:5000}
       - MONITORING_INTERVAL=${MONITORING_INTERVAL:-300}
@@ -166,30 +210,6 @@ services:
       - .env
     restart: unless-stopped
     command: python -m src.orchestration.scheduler
-
-  # ============================================================
-  # PostgreSQL for MLOps (separate from Airflow)
-  # ============================================================
-  postgres-mlops:
-    image: postgres:13
-    container_name: mlops-postgres
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:-mlops}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mlops}
-      POSTGRES_DB: ${MLOPS_DB_NAME:-mlops}
-    volumes:
-      - postgres-mlops-volume:/var/lib/postgresql/data
-      - ./scripts/db/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql
-    ports:
-      - "5433:5432" # Different port to avoid conflict with Airflow
-    networks:
-      - mlops-network
-    healthcheck:
-      test: [ "CMD", "pg_isready", "-U", "${POSTGRES_USER:-mlops}" ]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-    restart: unless-stopped
 
   pgadmin:
     image: dpage/pgadmin4
