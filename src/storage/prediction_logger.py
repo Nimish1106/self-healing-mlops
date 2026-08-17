@@ -1,144 +1,26 @@
 """
-Prediction logger with FULL feature storage and header validation.
+Prediction logger with FULL feature storage in PostgreSQL (Single Source of Truth).
 
-CRITICAL CHANGE: Must store raw features for replay-based evaluation.
-CSV header validation ensures column consistency.
-
-Why?
-- Production and shadow models need to predict on SAME data
-- Can't compare fairly if features are missing
-- Enables true apples-to-apples comparison
-- CSV header misalignment breaks downstream pipelines
+Stores raw features for replay-based evaluation and drift analysis in PostgreSQL JSONB.
 """
 
-import pandas as pd
-from pathlib import Path
-from datetime import datetime
-import uuid
 import logging
+import uuid
+from datetime import datetime
+from typing import Dict, Any, List, Optional
+import pandas as pd
+
+from src.storage.repositories import PredictionsRepository
 
 logger = logging.getLogger(__name__)
 
 
-def _get_expected_columns() -> list:
-    """
-    Get expected column order for predictions CSV.
-
-    Returns:
-        List of column names in canonical order
-    """
-    feature_columns = [
-        "RevolvingUtilizationOfUnsecuredLines",
-        "age",
-        "NumberOfTime30_59DaysPastDueNotWorse",
-        "DebtRatio",
-        "MonthlyIncome",
-        "NumberOfOpenCreditLinesAndLoans",
-        "NumberOfTimes90DaysLate",
-        "NumberRealEstateLoansOrLines",
-        "NumberOfTime60_89DaysPastDueNotWorse",
-        "NumberOfDependents",
-    ]
-
-    return [
-        "prediction_id",
-        "timestamp",
-        "model_version",
-        "prediction",
-        "probability",
-        "application_date",
-    ] + feature_columns
-
-
-def _validate_csv_header(csv_path: Path) -> bool:
-    """
-    Validate CSV header matches expected column order.
-
-    Args:
-        csv_path: Path to CSV file
-
-    Returns:
-        True if header is valid, False otherwise
-    """
-    if not csv_path.exists():
-        return True  # File doesn't exist yet, no header to validate
-
-    try:
-        df = pd.read_csv(csv_path, nrows=0)  # Read only header
-        expected = _get_expected_columns()
-        actual = list(df.columns)
-
-        if actual == expected:
-            return True
-
-        logger.warning(
-            f"CSV header mismatch!\n" f"  Expected: {expected}\n" f"  Actual:   {actual}"
-        )
-        return False
-
-    except Exception as e:
-        logger.error(f"Failed to validate CSV header: {e}")
-        return False
-
-
-def _repair_csv_header(csv_path: Path):
-    """
-    Repair CSV header by rewriting with correct order.
-
-    If file exists and header is wrong, reinitialize with correct header.
-    Existing data rows are discarded (this is acceptable for monitoring data).
-
-    Args:
-        csv_path: Path to CSV file
-    """
-    if not csv_path.exists():
-        return  # Nothing to repair
-
-    try:
-        # Check header
-        if _validate_csv_header(csv_path):
-            return  # Header is already valid
-
-        logger.warning(f"Repairing CSV header for {csv_path}...")
-
-        # Reinitialize with correct header
-        expected_columns = _get_expected_columns()
-        df = pd.DataFrame(columns=expected_columns)
-        df.to_csv(csv_path, index=False)
-
-        logger.info(f"✅ CSV header repaired: {csv_path}")
-
-    except PermissionError as e:
-        logger.warning(
-            f"⚠️  Cannot repair CSV header due to permission denied: {csv_path}. Data integrity may be affected until permissions are fixed. Error: {e}"
-        )
-        # Don't raise; just log warning to allow DAG to continue
-    except Exception as e:
-        logger.error(f"Failed to repair CSV header: {e}")
-        raise
-
-
 class PredictionLogger:
     """
-    Log predictions WITH full feature vectors and CSV header validation.
-
-    Schema:
-    - prediction_id: Unique ID
-    - timestamp: When prediction made
-    - model_version: Model that made prediction
-    - prediction: Predicted class (0/1)
-    - probability: Predicted probability
-    - application_date: Simulated timestamp (for temporal windows)
-    - feature_1, feature_2, ..., feature_N: ALL input features
-
-    CRITICAL: CSV header is validated/repaired on init.
+    Log predictions WITH full feature vectors to PostgreSQL.
     """
 
-    def __init__(self, storage_path: str = "/app/monitoring/predictions/predictions.csv"):
-        self.storage_path = Path(storage_path)
-        self.storage_path.parent.mkdir(parents=True, exist_ok=True)
-
-        # Feature columns (Give Me Some Credit dataset)
+    def __init__(self, repo: Optional[PredictionsRepository] = None):
         self.feature_columns = [
             "RevolvingUtilizationOfUnsecuredLines",
             "age",
@@ -151,22 +33,8 @@ class PredictionLogger:
             "NumberOfTime60_89DaysPastDueNotWorse",
             "NumberOfDependents",
         ]
+        self.repo = repo or PredictionsRepository()
 
-        # Validate/repair existing CSV if present
-        if self.storage_path.exists():
-            is_valid = _validate_csv_header(self.storage_path)
-            if not is_valid:
-                logger.warning(f"⚠️  CSV header is misaligned. Repairing {self.storage_path}...")
-                _repair_csv_header(self.storage_path)
-        else:
-            # Create new file with correct header
-            self._initialize_storage()
-
-    def _initialize_storage(self):
-        """Create storage with feature columns in canonical order."""
-        columns = _get_expected_columns()
-        df = pd.DataFrame(columns=columns)
-        df.to_csv(self.storage_path, index=False)
     def log_prediction(
         self,
         features: dict,
@@ -178,21 +46,10 @@ class PredictionLogger:
         request_id: str = None,
     ) -> str:
         """
-        Log prediction with FULL features in canonical column order and database durability.
+        Log prediction with FULL features to PostgreSQL.
 
-        Args:
-            features: Dictionary of feature values (all features required)
-            prediction: Predicted class
-            probability: Predicted probability
-            model_version: Model identifier
-            application_date: Simulated timestamp (optional)
-            prediction_id: Unique ID (optional, auto-generated if not provided)
-            request_id: Correlated request identifier (optional)
-
-        Returns:
-            prediction_id
+        Raises exception if PostgreSQL operation fails.
         """
-        # Allow caller (API) to supply a stable prediction_id; fall back to uuid4
         if prediction_id is None:
             prediction_id = str(uuid.uuid4())
         timestamp = datetime.now().isoformat()
@@ -202,101 +59,78 @@ class PredictionLogger:
         if missing:
             raise ValueError(f"Missing features: {missing}")
 
-        # 1. Primary write: PostgreSQL PredictionsRepository
-        try:
-            from src.storage.repositories import PredictionsRepository
+        return self.repo.insert(
+            prediction_id=prediction_id,
+            timestamp=timestamp,
+            model_version=str(model_version),
+            prediction=prediction,
+            probability=probability,
+            features=features,
+            application_date=application_date or timestamp,
+            request_id=request_id,
+        )
 
-            repo = PredictionsRepository()
-            repo.insert(
-                prediction_id=prediction_id,
-                timestamp=timestamp,
-                model_version=model_version,
-                prediction=prediction,
-                probability=probability,
-                features=features,
-                application_date=application_date or timestamp,
-                request_id=request_id,
-            )
-        except Exception as db_err:
-            logger.warning(
-                f"Could not persist prediction {prediction_id} to database (non-critical fallback): {db_err}"
-            )
-
-        # 2. Backup write: Append to CSV
-        try:
-            record = {
-                "prediction_id": prediction_id,
-                "timestamp": timestamp,
-                "model_version": model_version,
-                "prediction": prediction,
-                "probability": probability,
-                "application_date": application_date or timestamp,
-            }
-
-            for feat in self.feature_columns:
-                record[feat] = features[feat]
-
-            df = pd.DataFrame([record])
-            df = df[_get_expected_columns()]
-            df.to_csv(self.storage_path, mode="a", header=False, index=False)
-        except Exception as csv_err:
-            logger.warning(f"Could not append prediction to CSV backup: {csv_err}")
-
-        return prediction_id
-
-    def get_predictions_with_features(self, prediction_ids: list = None) -> pd.DataFrame:
+    def get_predictions_with_features(self, prediction_ids: Optional[list] = None) -> pd.DataFrame:
         """
-        Get predictions WITH features for replay evaluation.
-
-        Args:
-            prediction_ids: Optional list of specific IDs to retrieve
-
-        Returns:
-            DataFrame with predictions and features
+        Get predictions WITH features for replay evaluation from PostgreSQL.
         """
-        if not self.storage_path.exists():
+        records = self.repo.get_recent_predictions(days=365)
+        if not records:
             return pd.DataFrame()
 
-        df = pd.read_csv(self.storage_path)
+        rows = []
+        for r in records:
+            row = {
+                "prediction_id": r["prediction_id"],
+                "timestamp": r["timestamp"],
+                "model_version": r["model_version"],
+                "prediction": r["prediction"],
+                "probability": r["probability"],
+                "application_date": r["application_date"],
+            }
+            feats = r.get("features", {})
+            if isinstance(feats, dict):
+                row.update(feats)
+            rows.append(row)
 
-        if prediction_ids is not None:
+        df = pd.DataFrame(rows)
+        if prediction_ids is not None and not df.empty:
             df = df[df["prediction_id"].isin(prediction_ids)]
 
-        logger.info(f"Retrieved {len(df)} predictions with features")
+        logger.info(f"Retrieved {len(df)} predictions with features from PostgreSQL")
         return df
 
     def get_recent_predictions(
         self, days: int = 30, date_column: str = "application_date"
     ) -> pd.DataFrame:
         """
-        Get recent predictions (temporal window).
-
-        Args:
-            days: Look back period
-            date_column: Which date column to use
-
-        Returns:
-            DataFrame with recent predictions and features
+        Get recent predictions from PostgreSQL.
         """
-        if not self.storage_path.exists():
+        records = self.repo.get_recent_predictions(days=days)
+        if not records:
             return pd.DataFrame()
 
-        df = pd.read_csv(self.storage_path)
-        df[date_column] = pd.to_datetime(df[date_column])
+        rows = []
+        for r in records:
+            row = {
+                "prediction_id": r["prediction_id"],
+                "timestamp": r["timestamp"],
+                "model_version": r["model_version"],
+                "prediction": r["prediction"],
+                "probability": r["probability"],
+                "application_date": r["application_date"],
+            }
+            feats = r.get("features", {})
+            if isinstance(feats, dict):
+                row.update(feats)
+            rows.append(row)
 
-        cutoff = pd.Timestamp.now() - pd.Timedelta(days=days)
-        recent = df[df[date_column] >= cutoff].copy()
+        df = pd.DataFrame(rows)
+        if date_column in df.columns and not df.empty:
+            df[date_column] = pd.to_datetime(df[date_column])
 
-        logger.info(f"Retrieved {len(recent)} predictions from last {days} days")
-        return recent
-
-
-def _append_predictions(df, storage_path: str = "/app/monitoring/predictions/predictions.csv"):
-    path = Path(storage_path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    write_header = not path.exists()
-    df.to_csv(path, mode="a", header=write_header, index=False)
-    logger.info(f"Appended {len(df)} predictions to {path}")
+        logger.info(f"Retrieved {len(df)} predictions from last {days} days from PostgreSQL")
+        return df
 
 
 # Singleton instance

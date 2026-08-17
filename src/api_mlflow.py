@@ -524,23 +524,23 @@ async def monitoring_stats():
     Get basic monitoring statistics summary.
     """
     try:
-        import pandas as pd
-        from pathlib import Path
+        from src.storage.repositories import PredictionsRepository
 
-        pred_file = Path("/app/monitoring/predictions/predictions.csv")
+        repo = PredictionsRepository()
+        total_count = repo.count()
 
-        if not pred_file.exists():
+        if total_count == 0:
             return {"status": "no_predictions", "message": "No predictions logged yet"}
 
-        df = pd.read_csv(pred_file)
+        recent = repo.get_recent_predictions(days=30)
+        if not recent:
+            return {"status": "no_predictions", "message": "No recent predictions found"}
 
-        if len(df) == 0:
-            return {"status": "no_predictions", "message": "Prediction log is empty"}
-
-        recent_100 = df.tail(100)
+        df = pd.DataFrame(recent)
+        recent_100 = df.head(100)
 
         return {
-            "total_predictions": len(df),
+            "total_predictions": total_count,
             "recent_100": {
                 "count": len(recent_100),
                 "positive_rate": float(recent_100["prediction"].mean()),

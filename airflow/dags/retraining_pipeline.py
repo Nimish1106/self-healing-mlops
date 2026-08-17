@@ -266,7 +266,8 @@ def train_shadow_model(**context):
         pred_logger = get_prediction_logger()
         predictions_df = pred_logger.get_predictions_with_features()
 
-        labels_df = pd.read_csv("/app/monitoring/labels/labels.csv")
+        label_store = get_label_store()
+        labels_df = label_store.get_labeled_predictions()
 
         if predictions_df.empty or labels_df.empty:
             raise ValueError("No data available for training")

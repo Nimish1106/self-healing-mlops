@@ -1,52 +1,27 @@
 """
-Label store with IDEMPOTENT label updates.
-
-CRITICAL CHANGE: One label per prediction_id (no duplicates).
-
-Why?
-- Duplicate labels corrupt evaluation metrics
-- Makes gate decisions meaningless
-- Reflects real-world label systems
+Label store with IDEMPOTENT label updates in PostgreSQL (Single Source of Truth).
 """
 
-import pandas as pd
-from pathlib import Path
-from datetime import datetime
-from typing import Optional, Dict
 import logging
+from datetime import datetime
+from typing import Optional, Dict, Any
+import pandas as pd
+
+from src.storage.repositories import LabelsRepository
 
 logger = logging.getLogger(__name__)
 
 
 class LabelStore:
     """
-    Store ground truth labels with idempotency guarantee.
+    Store ground truth labels with idempotency guarantee in PostgreSQL.
 
     ENFORCED: One label per prediction_id.
-    If label exists → update, don't duplicate.
+    If label exists -> update, don't duplicate.
     """
 
-    def __init__(self, storage_path: str = "/app/monitoring/labels/labels.csv"):
-        self.storage_path = Path(storage_path)
-        self.storage_path.parent.mkdir(parents=True, exist_ok=True)
-
-        if not self.storage_path.exists():
-            self._initialize_storage()
-
-    def _initialize_storage(self):
-        """Create empty labels file."""
-        df = pd.DataFrame(
-            columns=[
-                "prediction_id",
-                "true_label",
-                "label_timestamp",
-                "label_source",
-                "days_delayed",
-                "updated_at",  # Track last update
-            ]
-        )
-        df.to_csv(self.storage_path, index=False)
-        logger.info(f"Initialized label store: {self.storage_path}")
+    def __init__(self, repo: Optional[LabelsRepository] = None):
+        self.repo = repo or LabelsRepository()
 
     def store_label(
         self,
@@ -56,21 +31,10 @@ class LabelStore:
         prediction_timestamp: Optional[str] = None,
     ):
         """
-        Store label with idempotency.
-
-        If prediction_id already has label:
-        - Update existing record
-        - Log warning
-
-        Args:
-            prediction_id: ID of prediction
-            true_label: Ground truth (0 or 1)
-            label_source: Where label came from
-            prediction_timestamp: Original prediction time
+        Store label with idempotency in PostgreSQL.
         """
         label_timestamp = datetime.now().isoformat()
 
-        # Calculate delay
         days_delayed = None
         if prediction_timestamp:
             try:
@@ -80,131 +44,59 @@ class LabelStore:
             except Exception as e:
                 logger.warning(f"Could not calculate delay: {e}")
 
-        # 1. Primary write: PostgreSQL LabelsRepository
-        try:
-            from src.storage.repositories import LabelsRepository
-
-            repo = LabelsRepository()
-            repo.insert_or_update(
-                prediction_id=prediction_id,
-                true_label=int(true_label),
-                label_source=label_source,
-                label_timestamp=label_timestamp,
-                days_delayed=days_delayed,
-            )
-        except Exception as db_err:
-            logger.warning(
-                f"Could not persist label for {prediction_id} to database (non-critical fallback): {db_err}"
-            )
-
-        # 2. Backup write: Local CSV
-        try:
-            # Load existing labels
-            if self.storage_path.exists():
-                df = pd.read_csv(self.storage_path)
-            else:
-                df = pd.DataFrame()
-
-            # Check if label already exists
-            existing_mask = df["prediction_id"] == prediction_id if len(df) > 0 else pd.Series([], dtype=bool)
-
-            if existing_mask.any():
-                old_label = df.loc[existing_mask, "true_label"].values[0]
-
-                if old_label != true_label:
-                    logger.warning(
-                        f"⚠️ Label conflict for {prediction_id}: "
-                        f"old={old_label}, new={true_label}. Updating."
-                    )
-
-                df.loc[existing_mask, "true_label"] = true_label
-                df.loc[existing_mask, "label_timestamp"] = label_timestamp
-                df.loc[existing_mask, "label_source"] = label_source
-                df.loc[existing_mask, "days_delayed"] = days_delayed
-                df.loc[existing_mask, "updated_at"] = label_timestamp
-
-                logger.info(f"Updated label for {prediction_id}: {true_label}")
-            else:
-                new_record = pd.DataFrame(
-                    [
-                        {
-                            "prediction_id": prediction_id,
-                            "true_label": true_label,
-                            "label_timestamp": label_timestamp,
-                            "label_source": label_source,
-                            "days_delayed": days_delayed,
-                            "updated_at": label_timestamp,
-                        }
-                    ]
-                )
-
-                df = pd.concat([df, new_record], ignore_index=True)
-                logger.info(f"Stored new label for {prediction_id}: {true_label}")
-
-            df.to_csv(self.storage_path, index=False)
-        except Exception as csv_err:
-            logger.warning(f"Could not update labels CSV backup: {csv_err}")
-
-    def get_labeled_predictions(self, predictions_df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Join predictions with labels (inner join).
-
-        Returns only predictions that have labels.
-
-        Args:
-            predictions_df: DataFrame with predictions
-
-        Returns:
-            DataFrame with predictions + labels
-        """
-        if not self.storage_path.exists():
-            return pd.DataFrame()
-
-        labels_df = pd.read_csv(self.storage_path)
-
-        if len(labels_df) == 0:
-            return pd.DataFrame()
-
-        # Validate no duplicates
-        duplicate_count = labels_df["prediction_id"].duplicated().sum()
-        if duplicate_count > 0:
-            logger.error(
-                f"🚨 CORRUPT LABEL STORE: {duplicate_count} duplicate prediction_ids found!"
-            )
-            # Deduplicate (keep last)
-            labels_df = labels_df.drop_duplicates(subset="prediction_id", keep="last")
-
-        # Join
-        merged = predictions_df.merge(
-            labels_df[["prediction_id", "true_label", "days_delayed"]],
-            on="prediction_id",
-            how="inner",
+        self.repo.insert_or_update(
+            prediction_id=prediction_id,
+            true_label=int(true_label),
+            label_source=label_source,
+            label_timestamp=label_timestamp,
+            days_delayed=days_delayed,
         )
+        logger.info(f"Stored label for {prediction_id} in PostgreSQL: {true_label}")
 
-        logger.info(f"Found {len(merged)} predictions with labels")
-        return merged
-
-    def get_label_coverage(self, predictions_df: pd.DataFrame) -> Dict:
+    def get_labeled_predictions(self, predictions_df: Optional[pd.DataFrame] = None) -> pd.DataFrame:
         """
-        Calculate label coverage statistics.
-
-        Returns:
-            Dictionary with coverage metrics
+        Get predictions joined with ground truth labels from PostgreSQL v_labeled_predictions.
         """
-        labeled = self.get_labeled_predictions(predictions_df)
+        records = self.repo.get_labeled_predictions()
+        if not records:
+            return pd.DataFrame()
 
-        total = len(predictions_df)
-        labeled_count = len(labeled)
+        rows = []
+        for r in records:
+            row = {
+                "prediction_id": r["prediction_id"],
+                "prediction_timestamp": r.get("prediction_timestamp"),
+                "model_version": r.get("model_version"),
+                "prediction": r.get("prediction"),
+                "probability": r.get("probability"),
+                "application_date": r.get("application_date"),
+                "true_label": r.get("true_label"),
+                "label_timestamp": r.get("label_timestamp"),
+                "label_source": r.get("label_source"),
+                "days_delayed": r.get("days_delayed"),
+            }
+            feats = r.get("features", {})
+            if isinstance(feats, dict):
+                row.update(feats)
+            rows.append(row)
 
-        return {
-            "total_predictions": total,
-            "labeled_predictions": labeled_count,
-            "coverage_rate": labeled_count / total if total > 0 else 0.0,
-            "unlabeled_predictions": total - labeled_count,
-        }
+        df = pd.DataFrame(rows)
+
+        if predictions_df is not None and not predictions_df.empty and not df.empty:
+            if "prediction_id" in predictions_df.columns:
+                df = df[df["prediction_id"].isin(predictions_df["prediction_id"])]
+
+        logger.info(f"Retrieved {len(df)} labeled predictions from PostgreSQL")
+        return df
+
+    def get_label_coverage(self, predictions_df: Optional[pd.DataFrame] = None) -> Dict[str, Any]:
+        """
+        Calculate label coverage statistics directly from PostgreSQL.
+        """
+        return self.repo.get_coverage_stats()
 
 
-# Singleton
+# Singleton instance
 _label_store_instance = None
 
 

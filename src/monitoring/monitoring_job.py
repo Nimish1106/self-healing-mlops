@@ -39,11 +39,9 @@ CATEGORICAL_FEATURES = []
 class MonitoringJob:
     def __init__(
         self,
-        predictions_path: str = "/app/monitoring/predictions/predictions.csv",
         reference_dir: str = "/app/monitoring/reference",
         output_dir: str = "/app/monitoring/metrics/monitoring_results",
     ):
-        self.predictions_path = Path(predictions_path)
         self.reference_dir = reference_dir
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
@@ -54,21 +52,23 @@ class MonitoringJob:
         verify_reference_integrity(reference_dir)
 
         self.reference_data, self.reference_metadata = load_reference_data(reference_dir)
-        logger.info("Monitoring job initialized with database storage")
+        logger.info("Monitoring job initialized with PostgreSQL storage")
 
     def load_predictions(self, lookback_hours: int = 24) -> pd.DataFrame:
-        if not self.predictions_path.exists():
-            return pd.DataFrame()
+        from src.storage.prediction_logger import get_prediction_logger
 
-        df = pd.read_csv(self.predictions_path)
+        logger_inst = get_prediction_logger()
+        days = max(1, lookback_hours // 24)
+        df = logger_inst.get_recent_predictions(days=days)
 
         if len(df) == 0:
             return df
 
-        df["timestamp"] = pd.to_datetime(df["timestamp"])
-        cutoff = pd.Timestamp.now() - pd.Timedelta(hours=lookback_hours)
-        df_recent = df[df["timestamp"] > cutoff]
-        return df_recent
+        if "timestamp" in df.columns:
+            df["timestamp"] = pd.to_datetime(df["timestamp"])
+            cutoff = pd.Timestamp.now() - pd.Timedelta(hours=lookback_hours)
+            df = df[df["timestamp"] > cutoff]
+        return df
 
     def run_monitoring_job(self, lookback_hours: int = 24) -> Dict[str, Any]:
         run_timestamp = datetime.now()

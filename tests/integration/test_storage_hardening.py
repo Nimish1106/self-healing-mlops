@@ -151,19 +151,14 @@ class TestStorageHardening:
         assert row["days_delayed"] == 1
 
     @patch("src.storage.repositories.get_db_manager")
-    def test_database_failure_fallback_in_logger_and_store(
-        self, mock_get_db, temp_monitoring_dir
-    ):
-        """Test that database failures do not crash PredictionLogger or LabelStore."""
+    def test_database_failure_raises_explicit_error(self, mock_get_db):
+        """Test that database failures raise an explicit error and do NOT write to CSV files."""
         mock_db = MagicMock()
         mock_db.execute_query.side_effect = RuntimeError("PostgreSQL connection lost")
         mock_get_db.return_value = mock_db
 
-        pred_csv = f"{temp_monitoring_dir}/predictions.csv"
-        label_csv = f"{temp_monitoring_dir}/labels.csv"
-
-        logger = PredictionLogger(storage_path=pred_csv)
-        store = LabelStore(storage_path=label_csv)
+        logger_inst = PredictionLogger()
+        store = LabelStore()
 
         features = {
             "RevolvingUtilizationOfUnsecuredLines": 0.2,
@@ -178,31 +173,22 @@ class TestStorageHardening:
             "NumberOfDependents": 0,
         }
 
-        # Should NOT raise an exception; falls back to CSV
-        pred_id = logger.log_prediction(
-            prediction_id="pred_fallback_001",
-            features=features,
-            prediction=0,
-            probability=0.05,
-            model_version="1",
-        )
+        # Should raise an explicit RuntimeError when PostgreSQL fails
+        with pytest.raises(RuntimeError, match="PostgreSQL connection lost"):
+            logger_inst.log_prediction(
+                prediction_id="pred_fail_001",
+                features=features,
+                prediction=0,
+                probability=0.05,
+                model_version="1",
+            )
 
-        assert pred_id == "pred_fallback_001"
-        # Verify CSV has the row
-        df_preds = logger.get_predictions_with_features()
-        assert len(df_preds) == 1
-        assert df_preds["prediction_id"].iloc[0] == "pred_fallback_001"
-
-        # Label store fallback
-        store.store_label(
-            prediction_id="pred_fallback_001",
-            true_label=0,
-            label_source="test_fallback",
-        )
-
-        joined = store.get_labeled_predictions(df_preds)
-        assert len(joined) == 1
-        assert joined["true_label"].iloc[0] == 0
+        with pytest.raises(RuntimeError, match="PostgreSQL connection lost"):
+            store.store_label(
+                prediction_id="pred_fail_001",
+                true_label=0,
+                label_source="test_fail",
+            )
 
     def test_api_submit_label_endpoint(self, client, monkeypatch):
         """Test API POST /labels endpoint."""

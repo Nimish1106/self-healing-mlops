@@ -39,18 +39,15 @@ def main() -> None:
     logger.info("PHASE 5 EVALUATION AUDIT")
     logger.info("=" * 80)
 
-    predictions_path = Path("/app/monitoring/predictions/predictions.csv")
-    labels_path = Path("/app/monitoring/labels/labels.csv")
-    summaries_dir = Path("/app/monitoring/drift/summaries")
-    drift_log_path = Path("/app/monitoring/drift_injections/drift_log.json")
-    decisions_dir = Path("/app/monitoring/retraining/decisions")
+    from src.storage.repositories import PredictionsRepository, LabelsRepository
 
-    pred_df = pd.read_csv(predictions_path) if predictions_path.exists() else pd.DataFrame()
-    label_df = pd.read_csv(labels_path) if labels_path.exists() else pd.DataFrame()
+    pred_repo = PredictionsRepository()
+    label_repo = LabelsRepository()
 
-    total_predictions = len(pred_df)
-    total_labels = len(label_df)
-    coverage_pct = (total_labels / total_predictions * 100.0) if total_predictions > 0 else 0.0
+    total_predictions = pred_repo.count()
+    coverage_stats = label_repo.get_coverage_stats()
+    total_labels = coverage_stats.get("labeled_predictions", 0)
+    coverage_pct = coverage_stats.get("coverage_pct", 0.0)
 
     logger.info("\n[1/6] Data volumes")
     logger.info("Predictions: %s", total_predictions)
