@@ -34,22 +34,22 @@ EXPERIMENT_NAME = "credit-risk-prediction"
 MODEL_NAME = "credit-risk-model"
 
 
+from src.features.schema import FEATURE_COLUMNS, TARGET_COLUMN, extract_features, validate_features
+
+
 def prepare_data(df: pd.DataFrame) -> tuple:
     """
-    Prepare data for training.
-    Simple preprocessing - fill missing values with median.
+    Prepare data for training using canonical feature schema.
+    Validates dataset schema and extracts canonical features in exact order.
     """
-    # Fill missing values
-
     df_clean = df.fillna(df.median(numeric_only=True))
 
-    # Separate target
-    target_col = "SeriousDlqin2yrs"
-    X = df_clean.drop(columns=[df_clean.columns[0], target_col])
-    y = df_clean[target_col]
+    is_valid, issues = validate_features(df_clean)
+    if not is_valid:
+        raise ValueError(f"Training dataset schema validation failed: {issues}")
 
-    # Keep only numeric features
-    X = X.select_dtypes(include=[np.number])
+    X = extract_features(df_clean)
+    y = df_clean[TARGET_COLUMN]
 
     return X, y
 

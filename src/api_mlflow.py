@@ -13,6 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 import mlflow
 import mlflow.sklearn
+import pandas as pd
 import numpy as np
 import os
 import uuid
@@ -418,23 +419,12 @@ async def predict(input_data: PredictionInput, request: Request):
     request_id = getattr(request.state, "request_id", None) or f"req_{uuid.uuid4().hex[:12]}"
 
     try:
+        from src.features.schema import FEATURE_COLUMNS
+
         # Prepare features (canonical ordering matching training)
-        features = np.array(
-            [
-                [
-                    input_data.RevolvingUtilizationOfUnsecuredLines,
-                    input_data.age,
-                    input_data.NumberOfTime30_59DaysPastDueNotWorse,
-                    input_data.DebtRatio,
-                    input_data.MonthlyIncome,
-                    input_data.NumberOfOpenCreditLinesAndLoans,
-                    input_data.NumberOfTimes90DaysLate,
-                    input_data.NumberRealEstateLoansOrLines,
-                    input_data.NumberOfTime60_89DaysPastDueNotWorse,
-                    input_data.NumberOfDependents,
-                ]
-            ]
-        )
+        input_dict = input_data.dict()
+        df_features = pd.DataFrame([input_dict])[FEATURE_COLUMNS]
+        features = df_features.to_numpy()
 
         # Predict
         preds = np.asarray(model.predict(features))

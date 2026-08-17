@@ -19,21 +19,11 @@ logger = logging.getLogger(__name__)
 
 MIN_SAMPLES_FOR_ANALYSIS = 200
 
-FEATURE_COLUMNS = [
-    "RevolvingUtilizationOfUnsecuredLines",
-    "age",
-    "NumberOfTime30_59DaysPastDueNotWorse",
-    "DebtRatio",
-    "MonthlyIncome",
-    "NumberOfOpenCreditLinesAndLoans",
-    "NumberOfTimes90DaysLate",
-    "NumberRealEstateLoansOrLines",
-    "NumberOfTime60_89DaysPastDueNotWorse",
-    "NumberOfDependents",
-]
-
-NUMERICAL_FEATURES = FEATURE_COLUMNS.copy()
-CATEGORICAL_FEATURES = []
+from src.features.schema import (
+    FEATURE_COLUMNS,
+    NUMERICAL_FEATURES,
+    CATEGORICAL_FEATURES,
+)
 
 
 class MonitoringJob:

@@ -31,19 +31,7 @@ class ShadowModelTrainer:
     NO random splits. Time-based splits only.
     """
 
-    # Feature schema (Give Me Some Credit)
-    FEATURE_COLUMNS = [
-        "RevolvingUtilizationOfUnsecuredLines",
-        "age",
-        "NumberOfTime30_59DaysPastDueNotWorse",
-        "DebtRatio",
-        "MonthlyIncome",
-        "NumberOfOpenCreditLinesAndLoans",
-        "NumberOfTimes90DaysLate",
-        "NumberRealEstateLoansOrLines",
-        "NumberOfTime60_89DaysPastDueNotWorse",
-        "NumberOfDependents",
-    ]
+    from src.features.schema import FEATURE_COLUMNS
 
     def __init__(
         self, model_name: str = "credit-risk-model", mlflow_tracking_uri: str = "http://mlflow:5000"
