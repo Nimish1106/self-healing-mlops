@@ -251,7 +251,7 @@ class ModelPromoter:
 
     def get_deployment_history(self, limit: int = 10) -> list:
         """Get recent deployment history."""
-        records = []
+        records: list = []
 
         for filepath in sorted(self.decisions_path.glob("decision_*.json"), reverse=True):
             if len(records) >= limit:

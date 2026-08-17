@@ -12,7 +12,7 @@ import mlflow
 import mlflow.sklearn
 from mlflow.models.signature import infer_signature
 from datetime import datetime
-from typing import Dict, Tuple
+from typing import Dict, Tuple, Optional, Any, List
 import logging
 import sys
 from src.utils.temporal_utils import TemporalWindows
@@ -47,7 +47,13 @@ class ShadowModelTrainer:
         eval_start_date: str,
         eval_end_date: str,
         min_eval_samples: int = 30,
-    ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series, dict]:
+    ) -> Tuple[
+        Optional[pd.DataFrame],
+        Optional[pd.DataFrame],
+        Optional[pd.Series],
+        Optional[pd.Series],
+        Dict[str, Any],
+    ]:
         """
         Prepare temporal train/eval split with deduplication and validation.
 
@@ -69,7 +75,7 @@ class ShadowModelTrainer:
         logger.info("TEMPORAL DATA PREPARATION")
         logger.info("=" * 80)
 
-        validation_status = {"valid": True, "message": "OK", "issues": []}
+        validation_status: Dict[str, Any] = {"valid": True, "message": "OK", "issues": []}
 
         # Join predictions with labels
         merged = predictions_df.merge(

@@ -8,7 +8,7 @@ Supports controlled drift injection at scheduled times.
 import pandas as pd
 import requests
 import time
-from typing import Dict, Optional
+from typing import Dict, Optional, Any, List
 from datetime import datetime
 import logging
 
@@ -56,7 +56,7 @@ class DataSimulator:
 
         sample_data = data.head(num_samples)
 
-        stats = {
+        stats: Dict[str, Any] = {
             "total_samples": num_samples,
             "successful_predictions": 0,
             "failed_predictions": 0,
@@ -113,9 +113,8 @@ class DataSimulator:
     def _row_to_payload(self, row: pd.Series) -> Dict:
         """
         Convert dataframe row to API payload.
-
-        Handles NaN values and type conversions.
         """
+        row_dict = row.to_dict()
 
         def safe_float(val):
             if pd.isna(val):
@@ -129,23 +128,25 @@ class DataSimulator:
 
         payload = {
             "RevolvingUtilizationOfUnsecuredLines": safe_float(
-                row.get("RevolvingUtilizationOfUnsecuredLines", 0)
+                row_dict.get("RevolvingUtilizationOfUnsecuredLines", 0.0)
             ),
-            "age": safe_int(row.get("age", 0)),
+            "age": safe_int(row_dict.get("age", 0)),
             "NumberOfTime30_59DaysPastDueNotWorse": safe_int(
-                row.get("NumberOfTime30-59DaysPastDueNotWorse", 0)
+                row_dict.get("NumberOfTime30_59DaysPastDueNotWorse")
+                or row_dict.get("NumberOfTime30-59DaysPastDueNotWorse", 0)
             ),
-            "DebtRatio": safe_float(row.get("DebtRatio", 0)),
-            "MonthlyIncome": safe_float(row.get("MonthlyIncome", 0)),
+            "DebtRatio": safe_float(row_dict.get("DebtRatio", 0.0)),
+            "MonthlyIncome": safe_float(row_dict.get("MonthlyIncome", 0.0)),
             "NumberOfOpenCreditLinesAndLoans": safe_int(
-                row.get("NumberOfOpenCreditLinesAndLoans", 0)
+                row_dict.get("NumberOfOpenCreditLinesAndLoans", 0)
             ),
-            "NumberOfTimes90DaysLate": safe_int(row.get("NumberOfTimes90DaysLate", 0)),
-            "NumberRealEstateLoansOrLines": safe_int(row.get("NumberRealEstateLoansOrLines", 0)),
+            "NumberOfTimes90DaysLate": safe_int(row_dict.get("NumberOfTimes90DaysLate", 0)),
+            "NumberRealEstateLoansOrLines": safe_int(row_dict.get("NumberRealEstateLoansOrLines", 0)),
             "NumberOfTime60_89DaysPastDueNotWorse": safe_int(
-                row.get("NumberOfTime60-89DaysPastDueNotWorse", 0)
+                row_dict.get("NumberOfTime60_89DaysPastDueNotWorse")
+                or row_dict.get("NumberOfTime60-89DaysPastDueNotWorse", 0)
             ),
-            "NumberOfDependents": safe_int(row.get("NumberOfDependents", 0)),
+            "NumberOfDependents": safe_int(row_dict.get("NumberOfDependents", 0)),
         }
 
         return payload

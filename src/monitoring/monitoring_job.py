@@ -133,7 +133,7 @@ class MonitoringJob:
         num_predictions: int,
         proxy_metrics: Dict[str, Any],
         drift_summary: Dict[str, Any],
-        drift_summary_ref: str,
+        drift_summary_ref: Any = None,
     ):
         overall_stats = proxy_metrics.get("overall_stats", {})
 

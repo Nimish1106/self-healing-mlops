@@ -130,7 +130,7 @@ class DriftSignalChecker:
                 old_details = report_data["feature_drift_details"]
                 if isinstance(old_details, list):
                     drifted_features = [
-                        f.get("feature")
+                        str(f.get("feature", ""))
                         for f in old_details
                         if isinstance(f, dict) and f.get("drift_detected", False)
                     ]
