@@ -41,7 +41,9 @@ def main():
     # Step 1: Check current production model
     logger.info("\n[Step 1/5] Checking current production model...")
 
-    mlflow.set_tracking_uri("http://mlflow:5000")
+    import os
+
+    mlflow.set_tracking_uri(os.getenv("MLFLOW_TRACKING_URI", "http://mlflow:5000"))
     client = mlflow.tracking.MlflowClient()
 
     prod_versions = client.get_latest_versions("credit-risk-model", stages=["Production"])

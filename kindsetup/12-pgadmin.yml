@@ -28,7 +28,11 @@ spec:
           value: admin@admin.com
 
         - name: PGADMIN_DEFAULT_PASSWORD
-          value: admin
+          valueFrom:
+            secretKeyRef:
+              name: mlops-secrets
+              key: pgadmin-password
+              optional: true
 
         - name: PGADMIN_CONFIG_SERVER_MODE
           value: "False"

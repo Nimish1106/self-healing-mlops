@@ -33,14 +33,28 @@ spec:
         - name: AIRFLOW__WEBSERVER__ENABLE_PROXY_FIX
           value: "True"
 
+        - name: AIRFLOW_ADMIN_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: mlops-secrets
+              key: airflow-username
+              optional: true
+
+        - name: AIRFLOW_ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mlops-secrets
+              key: airflow-password
+              optional: true
+
         command: ["/bin/bash", "-c"]
 
         args:
           - >
             airflow db migrate &&
             airflow users create
-            --username admin
-            --password admin
+            --username "${AIRFLOW_ADMIN_USERNAME:-admin}"
+            --password "${AIRFLOW_ADMIN_PASSWORD:-admin}"
             --firstname admin
             --lastname admin
             --role Admin

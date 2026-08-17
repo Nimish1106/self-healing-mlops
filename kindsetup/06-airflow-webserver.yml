@@ -33,11 +33,23 @@ spec:
           value: "k9Yp3n7sQ8tBv2LxZ4mR0uF1wE6hC5aG"
         - name: MLFLOW_TRACKING_URI
           value: "http://mlflow-service:5000"
+        - name: AIRFLOW_ADMIN_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: mlops-secrets
+              key: airflow-username
+              optional: true
+        - name: AIRFLOW_ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mlops-secrets
+              key: airflow-password
+              optional: true
         command: ["/bin/bash", "-c"]
         args:
           - |
             airflow db migrate &&
-            airflow users create --username admin --password admin --firstname Admin --lastname User --role Admin --email admin@example.com || true &&
+            airflow users create --username "${AIRFLOW_ADMIN_USERNAME:-admin}" --password "${AIRFLOW_ADMIN_PASSWORD:-admin}" --firstname Admin --lastname User --role Admin --email admin@example.com || true &&
             airflow webserver
 ---
 apiVersion: v1

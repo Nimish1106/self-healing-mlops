@@ -92,7 +92,9 @@ def main() -> None:
     logger.info("Promotions: %s | Rejections: %s | Promotion failures: %s", promotions, rejections, failures)
 
     logger.info("\n[5/6] Current production model")
-    mlflow.set_tracking_uri("http://mlflow:5000")
+    import os
+
+    mlflow.set_tracking_uri(os.getenv("MLFLOW_TRACKING_URI", "http://mlflow:5000"))
     client = mlflow.tracking.MlflowClient()
     versions = client.get_latest_versions("credit-risk-model", stages=["Production"])
 

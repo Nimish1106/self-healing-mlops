@@ -321,7 +321,8 @@ def train_shadow_model(**context):
         # Get shadow model version from MLflow
         import mlflow
 
-        mlflow.set_tracking_uri("http://mlflow:5000")
+        tracking_uri = os.getenv("MLFLOW_TRACKING_URI", "http://mlflow:5000")
+        mlflow.set_tracking_uri(tracking_uri)
         client = mlflow.tracking.MlflowClient()
 
         shadow_versions = client.search_model_versions(
@@ -373,7 +374,8 @@ def evaluate_models_replay(**context):
             raise ValueError("Shadow model version not found")
 
         # Get production model version
-        mlflow.set_tracking_uri("http://mlflow:5000")
+        tracking_uri = os.getenv("MLFLOW_TRACKING_URI", "http://mlflow:5000")
+        mlflow.set_tracking_uri(tracking_uri)
         client = mlflow.tracking.MlflowClient()
 
         prod_versions = client.get_latest_versions("credit-risk-model", stages=["Production"])
