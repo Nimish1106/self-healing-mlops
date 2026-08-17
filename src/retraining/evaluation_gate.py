@@ -148,7 +148,10 @@ class EvaluationGate:
         if coverage_stats:
             if "coverage_pct" in coverage_stats and coverage_stats["coverage_pct"] is not None:
                 coverage_pct = float(coverage_stats["coverage_pct"])
-            elif "label_coverage_pct" in coverage_stats and coverage_stats["label_coverage_pct"] is not None:
+            elif (
+                "label_coverage_pct" in coverage_stats
+                and coverage_stats["label_coverage_pct"] is not None
+            ):
                 coverage_pct = float(coverage_stats["label_coverage_pct"])
             elif "coverage_rate" in coverage_stats and coverage_stats["coverage_rate"] is not None:
                 coverage_pct = float(coverage_stats["coverage_rate"]) * 100.0

@@ -9,6 +9,11 @@ from src.analytics.proxy_metrics import analyze_proxy_metrics
 from src.analytics.drift_detection import DriftDetector, load_reference_data
 from src.storage.repositories import MonitoringMetricsRepository
 from scripts.bootstrap_reference import verify_reference_integrity
+from src.features.schema import (
+    FEATURE_COLUMNS,
+    NUMERICAL_FEATURES,
+    CATEGORICAL_FEATURES,
+)
 
 sys.path.append("/app")
 
@@ -18,12 +23,6 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 MIN_SAMPLES_FOR_ANALYSIS = 200
-
-from src.features.schema import (
-    FEATURE_COLUMNS,
-    NUMERICAL_FEATURES,
-    CATEGORICAL_FEATURES,
-)
 
 
 class MonitoringJob:

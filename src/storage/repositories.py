@@ -195,12 +195,18 @@ class RetrainingDecisionsRepository:
         if data_context:
             if "labeled_samples" in data_context and data_context["labeled_samples"] is not None:
                 labeled_samples = int(data_context["labeled_samples"])
-            elif "labeled_predictions" in data_context and data_context["labeled_predictions"] is not None:
+            elif (
+                "labeled_predictions" in data_context
+                and data_context["labeled_predictions"] is not None
+            ):
                 labeled_samples = int(data_context["labeled_predictions"])
 
             if "coverage_pct" in data_context and data_context["coverage_pct"] is not None:
                 coverage_pct = float(data_context["coverage_pct"])
-            elif "label_coverage_pct" in data_context and data_context["label_coverage_pct"] is not None:
+            elif (
+                "label_coverage_pct" in data_context
+                and data_context["label_coverage_pct"] is not None
+            ):
                 coverage_pct = float(data_context["label_coverage_pct"])
             elif "coverage_rate" in data_context and data_context["coverage_rate"] is not None:
                 coverage_pct = float(data_context["coverage_rate"]) * 100.0
@@ -211,7 +217,10 @@ class RetrainingDecisionsRepository:
         dataset_drift_detected = False
         drifted_features = []
         if drift_context:
-            if "feature_drift_ratio" in drift_context and drift_context["feature_drift_ratio"] is not None:
+            if (
+                "feature_drift_ratio" in drift_context
+                and drift_context["feature_drift_ratio"] is not None
+            ):
                 feature_drift_ratio = float(drift_context["feature_drift_ratio"])
             elif "drift_share" in drift_context and drift_context["drift_share"] is not None:
                 feature_drift_ratio = float(drift_context["drift_share"])
@@ -219,7 +228,11 @@ class RetrainingDecisionsRepository:
             num_drifted_features = int(
                 drift_context.get(
                     "num_drifted_features",
-                    len(drift_context.get("drifted_features", drift_context.get("drifted_feature_names", []))),
+                    len(
+                        drift_context.get(
+                            "drifted_features", drift_context.get("drifted_feature_names", [])
+                        )
+                    ),
                 )
             )
             dataset_drift_detected = bool(drift_context.get("dataset_drift_detected", False))
@@ -460,9 +473,7 @@ class PredictionsRepository:
         ON CONFLICT (prediction_id) DO NOTHING
         """
 
-        features_json = (
-            json.dumps(features) if isinstance(features, dict) else str(features)
-        )
+        features_json = json.dumps(features) if isinstance(features, dict) else str(features)
 
         params = (
             prediction_id,

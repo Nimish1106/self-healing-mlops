@@ -196,9 +196,7 @@ class ModelPromoter:
                     )
                     logger.info("✅ Rejected model version written to database")
                 except Exception as e:
-                    logger.warning(
-                        f"Failed to write rejected model version to database: {e}"
-                    )
+                    logger.warning(f"Failed to write rejected model version to database: {e}")
 
             return {"success": True, "action": "rejected", "record": rejection_record}
 

@@ -221,4 +221,3 @@ class TestAPIEndpoints:
         """Test monitoring stats endpoint."""
         response = client.get("/monitoring/stats")
         assert response.status_code in [200, 500]
-

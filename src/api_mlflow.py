@@ -176,7 +176,9 @@ class LabelInput(BaseModel):
     prediction_id: str = Field(..., description="Correlated prediction ID")
     true_label: int = Field(..., ge=0, le=1, description="Ground truth outcome (0 or 1)")
     label_source: Optional[str] = Field("manual", description="Origin/source of label")
-    prediction_timestamp: Optional[str] = Field(None, description="Original prediction timestamp if known")
+    prediction_timestamp: Optional[str] = Field(
+        None, description="Original prediction timestamp if known"
+    )
 
 
 class LabelResponse(BaseModel):
@@ -282,6 +284,7 @@ async def startup_event():
     if not is_testing():
         try:
             from src.storage.db_manager import get_db_manager
+
             db = get_db_manager()
             schema_path = Path("/app/scripts/db/schema.sql")
             if schema_path.exists():
@@ -564,4 +567,3 @@ if __name__ == "__main__":
     import uvicorn
 
     uvicorn.run(app, host="0.0.0.0", port=8000)
-

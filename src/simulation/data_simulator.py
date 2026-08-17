@@ -141,7 +141,9 @@ class DataSimulator:
                 row_dict.get("NumberOfOpenCreditLinesAndLoans", 0)
             ),
             "NumberOfTimes90DaysLate": safe_int(row_dict.get("NumberOfTimes90DaysLate", 0)),
-            "NumberRealEstateLoansOrLines": safe_int(row_dict.get("NumberRealEstateLoansOrLines", 0)),
+            "NumberRealEstateLoansOrLines": safe_int(
+                row_dict.get("NumberRealEstateLoansOrLines", 0)
+            ),
             "NumberOfTime60_89DaysPastDueNotWorse": safe_int(
                 row_dict.get("NumberOfTime60_89DaysPastDueNotWorse")
                 or row_dict.get("NumberOfTime60-89DaysPastDueNotWorse", 0)

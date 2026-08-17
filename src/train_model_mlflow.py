@@ -23,6 +23,7 @@ import os
 import sys
 
 from src.utils.dataset_fingerprint import get_dataset_metadata
+from src.features.schema import FEATURE_COLUMNS, TARGET_COLUMN, extract_features, validate_features
 
 # Add utils to path
 sys.path.append("/app")
@@ -32,9 +33,6 @@ mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
 
 EXPERIMENT_NAME = "credit-risk-prediction"
 MODEL_NAME = "credit-risk-model"
-
-
-from src.features.schema import FEATURE_COLUMNS, TARGET_COLUMN, extract_features, validate_features
 
 
 def prepare_data(df: pd.DataFrame) -> tuple:

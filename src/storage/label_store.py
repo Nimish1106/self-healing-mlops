@@ -53,7 +53,9 @@ class LabelStore:
         )
         logger.info(f"Stored label for {prediction_id} in PostgreSQL: {true_label}")
 
-    def get_labeled_predictions(self, predictions_df: Optional[pd.DataFrame] = None) -> pd.DataFrame:
+    def get_labeled_predictions(
+        self, predictions_df: Optional[pd.DataFrame] = None
+    ) -> pd.DataFrame:
         """
         Get predictions joined with ground truth labels from PostgreSQL v_labeled_predictions.
         """

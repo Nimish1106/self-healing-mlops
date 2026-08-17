@@ -169,9 +169,7 @@ class TestPhase1Regressions:
         mock_repo = MagicMock()
         mock_repo_cls.return_value = mock_repo
 
-        promoter = ModelPromoter(
-            model_name="credit-risk-model", decisions_path=temp_monitoring_dir
-        )
+        promoter = ModelPromoter(model_name="credit-risk-model", decisions_path=temp_monitoring_dir)
         eval_decision = {
             "final_decision": False,
             "reason": ["Insufficient improvement"],
@@ -218,9 +216,7 @@ class TestPhase1Regressions:
         mock_repo = MagicMock()
         mock_repo_cls.return_value = mock_repo
 
-        promoter = ModelPromoter(
-            model_name="credit-risk-model", decisions_path=temp_monitoring_dir
-        )
+        promoter = ModelPromoter(model_name="credit-risk-model", decisions_path=temp_monitoring_dir)
         eval_decision = {
             "final_decision": True,
             "metrics": {"f1_score": 0.85},
@@ -255,9 +251,7 @@ class TestPhase1Regressions:
         mock_repo = MagicMock()
         mock_repo_cls.return_value = mock_repo
 
-        promoter = ModelPromoter(
-            model_name="credit-risk-model", decisions_path=temp_monitoring_dir
-        )
+        promoter = ModelPromoter(model_name="credit-risk-model", decisions_path=temp_monitoring_dir)
         result = promoter.rollback_to_version("1")
 
         assert result["success"] is True

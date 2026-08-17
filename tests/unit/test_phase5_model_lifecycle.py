@@ -111,7 +111,7 @@ class TestPhase5ModelLifecycle:
             "issues": ["eval_single_class"],
         }
 
-        with patch("src.retraining.shadow_trainer.mlflow") as mock_mlflow:
+        with patch("src.retraining.shadow_trainer.mlflow"):
             model, run_id, result = trainer.train_shadow_model(
                 X_train=None,
                 y_train=None,
