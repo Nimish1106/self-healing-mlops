@@ -80,53 +80,70 @@ class LabelStore:
             except Exception as e:
                 logger.warning(f"Could not calculate delay: {e}")
 
-        # Load existing labels
-        if self.storage_path.exists():
-            df = pd.read_csv(self.storage_path)
-        else:
-            df = pd.DataFrame()
+        # 1. Primary write: PostgreSQL LabelsRepository
+        try:
+            from src.storage.repositories import LabelsRepository
 
-        # Check if label already exists
-        existing_mask = df["prediction_id"] == prediction_id
-
-        if existing_mask.any():
-            # Update existing
-            old_label = df.loc[existing_mask, "true_label"].values[0]
-
-            if old_label != true_label:
-                logger.warning(
-                    f"⚠️ Label conflict for {prediction_id}: "
-                    f"old={old_label}, new={true_label}. Updating."
-                )
-
-            df.loc[existing_mask, "true_label"] = true_label
-            df.loc[existing_mask, "label_timestamp"] = label_timestamp
-            df.loc[existing_mask, "label_source"] = label_source
-            df.loc[existing_mask, "days_delayed"] = days_delayed
-            df.loc[existing_mask, "updated_at"] = label_timestamp
-
-            logger.info(f"Updated label for {prediction_id}: {true_label}")
-        else:
-            # Insert new
-            new_record = pd.DataFrame(
-                [
-                    {
-                        "prediction_id": prediction_id,
-                        "true_label": true_label,
-                        "label_timestamp": label_timestamp,
-                        "label_source": label_source,
-                        "days_delayed": days_delayed,
-                        "updated_at": label_timestamp,
-                    }
-                ]
+            repo = LabelsRepository()
+            repo.insert_or_update(
+                prediction_id=prediction_id,
+                true_label=int(true_label),
+                label_source=label_source,
+                label_timestamp=label_timestamp,
+                days_delayed=days_delayed,
+            )
+        except Exception as db_err:
+            logger.warning(
+                f"Could not persist label for {prediction_id} to database (non-critical fallback): {db_err}"
             )
 
-            df = pd.concat([df, new_record], ignore_index=True)
+        # 2. Backup write: Local CSV
+        try:
+            # Load existing labels
+            if self.storage_path.exists():
+                df = pd.read_csv(self.storage_path)
+            else:
+                df = pd.DataFrame()
 
-            logger.info(f"Stored new label for {prediction_id}: {true_label}")
+            # Check if label already exists
+            existing_mask = df["prediction_id"] == prediction_id if len(df) > 0 else pd.Series([], dtype=bool)
 
-        # Save
-        df.to_csv(self.storage_path, index=False)
+            if existing_mask.any():
+                old_label = df.loc[existing_mask, "true_label"].values[0]
+
+                if old_label != true_label:
+                    logger.warning(
+                        f"⚠️ Label conflict for {prediction_id}: "
+                        f"old={old_label}, new={true_label}. Updating."
+                    )
+
+                df.loc[existing_mask, "true_label"] = true_label
+                df.loc[existing_mask, "label_timestamp"] = label_timestamp
+                df.loc[existing_mask, "label_source"] = label_source
+                df.loc[existing_mask, "days_delayed"] = days_delayed
+                df.loc[existing_mask, "updated_at"] = label_timestamp
+
+                logger.info(f"Updated label for {prediction_id}: {true_label}")
+            else:
+                new_record = pd.DataFrame(
+                    [
+                        {
+                            "prediction_id": prediction_id,
+                            "true_label": true_label,
+                            "label_timestamp": label_timestamp,
+                            "label_source": label_source,
+                            "days_delayed": days_delayed,
+                            "updated_at": label_timestamp,
+                        }
+                    ]
+                )
+
+                df = pd.concat([df, new_record], ignore_index=True)
+                logger.info(f"Stored new label for {prediction_id}: {true_label}")
+
+            df.to_csv(self.storage_path, index=False)
+        except Exception as csv_err:
+            logger.warning(f"Could not update labels CSV backup: {csv_err}")
 
     def get_labeled_predictions(self, predictions_df: pd.DataFrame) -> pd.DataFrame:
         """

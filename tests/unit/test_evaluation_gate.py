@@ -16,13 +16,15 @@ sys.path.append("/app")
 class TestEvaluationGate:
     """Test suite for EvaluationGate class."""
 
-    def test_gate_passes_on_good_shadow_model(self):
+    def test_gate_passes_on_good_shadow_model(self, temp_monitoring_dir):
         """Test that gate approves a clearly better model."""
         gate = EvaluationGate(
             min_f1_improvement_pct=2.0,
             max_brier_degradation=0.01,
             min_samples_for_decision=200,
             min_coverage_pct=0.0,  # Disable coverage check for test
+            promotion_cooldown_days=0,
+            decisions_path=temp_monitoring_dir,
         )
 
         production_metrics = {
@@ -54,9 +56,14 @@ class TestEvaluationGate:
         assert decision["final_decision"] is True
         assert all(gate["passed"] for gate in decision["gate_results"].values())
 
-    def test_gate_fails_on_insufficient_improvement(self):
+    def test_gate_fails_on_insufficient_improvement(self, temp_monitoring_dir):
         """Test that gate rejects model with insufficient F1 improvement."""
-        gate = EvaluationGate(min_f1_improvement_pct=2.0, min_coverage_pct=0.0)
+        gate = EvaluationGate(
+            min_f1_improvement_pct=2.0,
+            min_coverage_pct=0.0,
+            promotion_cooldown_days=0,
+            decisions_path=temp_monitoring_dir,
+        )
 
         production_metrics = {
             "num_samples": 250,
@@ -90,10 +97,14 @@ class TestEvaluationGate:
             "Insufficient F1 improvement" in str(reason) for reason in decision.get("reason", [])
         ) or "Insufficient F1 improvement" in str(decision.get("gate_results", {}))
 
-    def test_gate_fails_on_calibration_degradation(self):
+    def test_gate_fails_on_calibration_degradation(self, temp_monitoring_dir):
         """Test that gate rejects model with worse calibration."""
         gate = EvaluationGate(
-            min_f1_improvement_pct=2.0, max_brier_degradation=0.01, min_coverage_pct=0.0
+            min_f1_improvement_pct=2.0,
+            max_brier_degradation=0.01,
+            min_coverage_pct=0.0,
+            promotion_cooldown_days=0,
+            decisions_path=temp_monitoring_dir,
         )
 
         production_metrics = {
@@ -127,9 +138,13 @@ class TestEvaluationGate:
             "Calibration degraded" in str(reason) for reason in decision.get("reason", [])
         ) or "Calibration degraded" in str(decision.get("gate_results", {}))
 
-    def test_gate_fails_on_insufficient_samples(self):
+    def test_gate_fails_on_insufficient_samples(self, temp_monitoring_dir):
         """Test that gate requires minimum sample size."""
-        gate = EvaluationGate(min_samples_for_decision=200)
+        gate = EvaluationGate(
+            min_samples_for_decision=200,
+            promotion_cooldown_days=0,
+            decisions_path=temp_monitoring_dir,
+        )
 
         production_metrics = {"num_samples": 150}
         shadow_metrics = {"num_samples": 150}
@@ -147,11 +162,14 @@ class TestEvaluationGate:
         assert should_promote is False
         assert "Insufficient samples" in decision["reason"][0]
 
-    def test_threshold_customization(self):
+    def test_threshold_customization(self, temp_monitoring_dir):
         """Test that custom thresholds work correctly."""
         # Stricter gate
         strict_gate = EvaluationGate(
-            min_f1_improvement_pct=5.0, max_brier_degradation=0.005  # Require 5% improvement
+            min_f1_improvement_pct=5.0,
+            max_brier_degradation=0.005,  # Require 5% improvement
+            promotion_cooldown_days=0,
+            decisions_path=temp_monitoring_dir,
         )
 
         production_metrics = {

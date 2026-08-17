@@ -98,7 +98,7 @@ class ModelPromoter:
                 model_repo = ModelVersionsRepository()
                 model_repo.insert_or_update(
                     model_name=self.model_name,
-                    version=shadow_version,
+                    version=int(shadow_version),
                     stage="Production",
                     training_context={
                         "promoted_at": datetime.now().isoformat(),

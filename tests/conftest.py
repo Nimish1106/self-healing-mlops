@@ -12,8 +12,20 @@ from pathlib import Path
 import tempfile
 import shutil
 
-# Enable testing mode for test suite
+# Set environment variables for test execution
 os.environ["TESTING"] = "true"
+os.environ["MLFLOW_TRACKING_URI"] = "http://mock-mlflow:5000"
+os.environ["DATABASE_URL"] = "postgresql://mock:mock@localhost:5432/mock"
+
+
+def pytest_configure(config):
+    """
+    Configure pytest environment before test runner starts.
+    Ensures tests are isolated from production and live network services.
+    """
+    os.environ["TESTING"] = "true"
+    os.environ["MLFLOW_TRACKING_URI"] = "http://mock-mlflow:5000"
+    os.environ["DATABASE_URL"] = "postgresql://mock:mock@localhost:5432/mock"
 
 
 @pytest.fixture

@@ -10,7 +10,7 @@ Fixes:
 
 import uuid
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 import logging
 from .db_manager import get_db_manager
 
@@ -422,3 +422,249 @@ class ModelVersionsRepository:
         ]
 
         return [dict(zip(columns, row)) for row in rows]
+
+
+class PredictionsRepository:
+    """
+    Repository for predictions table.
+    Enforces durability, JSONB features storage, and idempotent inserts.
+    """
+
+    def __init__(self):
+        self.db = get_db_manager()
+
+    def insert(
+        self,
+        prediction_id: str,
+        timestamp: Any,
+        model_version: str,
+        prediction: int,
+        probability: float,
+        features: Dict[str, Any],
+        application_date: Optional[Any] = None,
+        request_id: Optional[str] = None,
+    ) -> str:
+        """
+        Idempotent prediction insertion (ON CONFLICT DO NOTHING).
+        """
+        import json
+
+        query = """
+        INSERT INTO predictions (
+            prediction_id, timestamp, model_version,
+            prediction, probability, application_date,
+            features, request_id
+        ) VALUES (
+            %s, %s, %s, %s, %s, %s, %s, %s
+        )
+        ON CONFLICT (prediction_id) DO NOTHING
+        """
+
+        features_json = (
+            json.dumps(features) if isinstance(features, dict) else str(features)
+        )
+
+        params = (
+            prediction_id,
+            timestamp,
+            str(model_version),
+            int(prediction),
+            float(probability),
+            application_date or timestamp,
+            features_json,
+            request_id,
+        )
+
+        self.db.execute_query(query, params)
+        logger.info(f"Persisted prediction {prediction_id} to database")
+        return prediction_id
+
+    def get_by_id(self, prediction_id: str) -> Optional[Dict]:
+        """Fetch single prediction record by ID."""
+        import json
+
+        query = """
+        SELECT prediction_id, timestamp, model_version, prediction, probability, application_date, features, request_id
+        FROM predictions
+        WHERE prediction_id = %s
+        """
+        rows = self.db.execute_query(query, (prediction_id,))
+        if not rows:
+            return None
+        r = rows[0]
+        feats = r[6]
+        if isinstance(feats, str):
+            try:
+                feats = json.loads(feats)
+            except Exception:
+                pass
+
+        return {
+            "prediction_id": r[0],
+            "timestamp": r[1],
+            "model_version": r[2],
+            "prediction": r[3],
+            "probability": r[4],
+            "application_date": r[5],
+            "features": feats,
+            "request_id": r[7],
+        }
+
+    def get_recent_predictions(self, days: int = 30) -> List[Dict]:
+        """Retrieve recent predictions within window."""
+        import json
+
+        query = """
+        SELECT prediction_id, timestamp, model_version, prediction, probability, application_date, features, request_id
+        FROM predictions
+        WHERE timestamp >= NOW() - (%s || ' days')::INTERVAL
+        ORDER BY timestamp DESC
+        """
+        rows = self.db.execute_query(query, (days,))
+        columns = [
+            "prediction_id",
+            "timestamp",
+            "model_version",
+            "prediction",
+            "probability",
+            "application_date",
+            "features",
+            "request_id",
+        ]
+        result = []
+        for row in rows:
+            record = dict(zip(columns, row))
+            if isinstance(record.get("features"), str):
+                try:
+                    record["features"] = json.loads(record["features"])
+                except Exception:
+                    pass
+            result.append(record)
+        return result
+
+    def count(self) -> int:
+        """Count total stored predictions."""
+        rows = self.db.execute_query("SELECT COUNT(*) FROM predictions")
+        return rows[0][0] if rows else 0
+
+
+class LabelsRepository:
+    """
+    Repository for labels table with upsert idempotency.
+    """
+
+    def __init__(self):
+        self.db = get_db_manager()
+
+    def insert_or_update(
+        self,
+        prediction_id: str,
+        true_label: int,
+        label_source: str = "manual",
+        label_timestamp: Optional[Any] = None,
+        days_delayed: Optional[int] = None,
+    ) -> str:
+        """
+        Idempotent label insertion/update.
+        """
+        query = """
+        INSERT INTO labels (
+            prediction_id, true_label, label_source,
+            label_timestamp, days_delayed
+        ) VALUES (
+            %s, %s, %s, %s, %s
+        )
+        ON CONFLICT (prediction_id)
+        DO UPDATE SET
+            true_label = EXCLUDED.true_label,
+            label_source = EXCLUDED.label_source,
+            label_timestamp = EXCLUDED.label_timestamp,
+            days_delayed = EXCLUDED.days_delayed,
+            updated_at = CURRENT_TIMESTAMP
+        """
+
+        params = (
+            prediction_id,
+            int(true_label),
+            label_source,
+            label_timestamp or datetime.now(),
+            days_delayed,
+        )
+
+        self.db.execute_query(query, params)
+        logger.info(f"Persisted label for prediction {prediction_id} (label={true_label})")
+        return prediction_id
+
+    def get_by_prediction_id(self, prediction_id: str) -> Optional[Dict]:
+        """Fetch ground truth label by prediction ID."""
+        query = "SELECT prediction_id, true_label, label_timestamp, label_source, days_delayed FROM labels WHERE prediction_id = %s"
+        rows = self.db.execute_query(query, (prediction_id,))
+        if not rows:
+            return None
+        r = rows[0]
+        return {
+            "prediction_id": r[0],
+            "true_label": r[1],
+            "label_timestamp": r[2],
+            "label_source": r[3],
+            "days_delayed": r[4],
+        }
+
+    def get_labeled_predictions(self, limit: Optional[int] = None) -> List[Dict]:
+        """Get dataset of predictions joined with ground truth labels."""
+        import json
+
+        query = """
+        SELECT
+            prediction_id, prediction_timestamp, model_version,
+            prediction, probability, application_date, features,
+            true_label, label_timestamp, label_source, days_delayed
+        FROM v_labeled_predictions
+        ORDER BY prediction_timestamp DESC
+        """
+        if limit:
+            query += f" LIMIT {int(limit)}"
+
+        rows = self.db.execute_query(query)
+        columns = [
+            "prediction_id",
+            "prediction_timestamp",
+            "model_version",
+            "prediction",
+            "probability",
+            "application_date",
+            "features",
+            "true_label",
+            "label_timestamp",
+            "label_source",
+            "days_delayed",
+        ]
+        result = []
+        for row in rows:
+            rec = dict(zip(columns, row))
+            if isinstance(rec.get("features"), str):
+                try:
+                    rec["features"] = json.loads(rec["features"])
+                except Exception:
+                    pass
+            result.append(rec)
+        return result
+
+    def get_coverage_stats(self) -> Dict[str, Any]:
+        """Calculate total predictions vs labeled predictions count and coverage rate."""
+        query = """
+        SELECT
+            (SELECT COUNT(*) FROM predictions) as total_predictions,
+            (SELECT COUNT(*) FROM labels) as labeled_predictions
+        """
+        rows = self.db.execute_query(query)
+        total = rows[0][0] if rows else 0
+        labeled = rows[0][1] if rows else 0
+        rate = (labeled / total) if total > 0 else 0.0
+        return {
+            "total_predictions": total,
+            "labeled_predictions": labeled,
+            "coverage_rate": rate,
+            "coverage_pct": rate * 100.0,
+            "unlabeled_predictions": max(0, total - labeled),
+        }

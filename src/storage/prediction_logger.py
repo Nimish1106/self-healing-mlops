@@ -167,8 +167,6 @@ class PredictionLogger:
         columns = _get_expected_columns()
         df = pd.DataFrame(columns=columns)
         df.to_csv(self.storage_path, index=False)
-        logger.info(f"Initialized prediction storage: {self.storage_path}")
-
     def log_prediction(
         self,
         features: dict,
@@ -177,9 +175,10 @@ class PredictionLogger:
         model_version: str,
         application_date: str = None,
         prediction_id: str = None,
+        request_id: str = None,
     ) -> str:
         """
-        Log prediction with FULL features in canonical column order.
+        Log prediction with FULL features in canonical column order and database durability.
 
         Args:
             features: Dictionary of feature values (all features required)
@@ -188,6 +187,7 @@ class PredictionLogger:
             model_version: Model identifier
             application_date: Simulated timestamp (optional)
             prediction_id: Unique ID (optional, auto-generated if not provided)
+            request_id: Correlated request identifier (optional)
 
         Returns:
             prediction_id
@@ -202,26 +202,45 @@ class PredictionLogger:
         if missing:
             raise ValueError(f"Missing features: {missing}")
 
-        # Build record in CANONICAL column order
-        record = {
-            "prediction_id": prediction_id,
-            "timestamp": timestamp,
-            "model_version": model_version,
-            "prediction": prediction,
-            "probability": probability,
-            "application_date": application_date or timestamp,
-        }
+        # 1. Primary write: PostgreSQL PredictionsRepository
+        try:
+            from src.storage.repositories import PredictionsRepository
 
-        # Add all features
-        for feat in self.feature_columns:
-            record[feat] = features[feat]
+            repo = PredictionsRepository()
+            repo.insert(
+                prediction_id=prediction_id,
+                timestamp=timestamp,
+                model_version=model_version,
+                prediction=prediction,
+                probability=probability,
+                features=features,
+                application_date=application_date or timestamp,
+                request_id=request_id,
+            )
+        except Exception as db_err:
+            logger.warning(
+                f"Could not persist prediction {prediction_id} to database (non-critical fallback): {db_err}"
+            )
 
-        # Ensure DataFrame uses canonical column order
-        df = pd.DataFrame([record])
-        df = df[_get_expected_columns()]  # Reorder to canonical order
+        # 2. Backup write: Append to CSV
+        try:
+            record = {
+                "prediction_id": prediction_id,
+                "timestamp": timestamp,
+                "model_version": model_version,
+                "prediction": prediction,
+                "probability": probability,
+                "application_date": application_date or timestamp,
+            }
 
-        # Append to CSV
-        df.to_csv(self.storage_path, mode="a", header=False, index=False)
+            for feat in self.feature_columns:
+                record[feat] = features[feat]
+
+            df = pd.DataFrame([record])
+            df = df[_get_expected_columns()]
+            df.to_csv(self.storage_path, mode="a", header=False, index=False)
+        except Exception as csv_err:
+            logger.warning(f"Could not append prediction to CSV backup: {csv_err}")
 
         return prediction_id
 

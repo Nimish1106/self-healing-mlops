@@ -169,6 +169,24 @@ class PredictionOutput(BaseModel):
     request_id: Optional[str] = Field(None, description="Correlated request ID")
 
 
+class LabelInput(BaseModel):
+    """Ground truth label submission schema."""
+
+    prediction_id: str = Field(..., description="Correlated prediction ID")
+    true_label: int = Field(..., ge=0, le=1, description="Ground truth outcome (0 or 1)")
+    label_source: Optional[str] = Field("manual", description="Origin/source of label")
+    prediction_timestamp: Optional[str] = Field(None, description="Original prediction timestamp if known")
+
+
+class LabelResponse(BaseModel):
+    """Label submission response."""
+
+    status: str
+    prediction_id: str
+    true_label: int
+    message: Optional[str] = None
+
+
 class RootResponse(BaseModel):
     """Root service information."""
 
@@ -429,7 +447,7 @@ async def predict(input_data: PredictionInput, request: Request):
         timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
         prediction_id = f"pred_{timestamp_str}"
 
-        # Log prediction for monitoring
+        # Log prediction for monitoring and durable storage
         if prediction_logger:
             try:
                 prediction_logger.log_prediction(
@@ -438,6 +456,7 @@ async def predict(input_data: PredictionInput, request: Request):
                     prediction=prediction,
                     probability=probability,
                     model_version=str(model_version),
+                    request_id=request_id,
                 )
             except Exception as e:
                 logger.error(
@@ -467,6 +486,36 @@ async def predict(input_data: PredictionInput, request: Request):
             exc_info=True,
         )
         raise HTTPException(status_code=500, detail="Prediction failed")
+
+
+@app.post("/labels", response_model=LabelResponse)
+async def submit_label(input_data: LabelInput):
+    """
+    Submit ground truth outcome for a past prediction.
+    Enforces idempotency and links to prediction_id for model evaluation.
+    """
+    try:
+        from src.storage.label_store import get_label_store
+
+        label_store = get_label_store()
+        label_store.store_label(
+            prediction_id=input_data.prediction_id,
+            true_label=input_data.true_label,
+            label_source=input_data.label_source or "manual",
+            prediction_timestamp=input_data.prediction_timestamp,
+        )
+        return LabelResponse(
+            status="success",
+            prediction_id=input_data.prediction_id,
+            true_label=input_data.true_label,
+            message="Label recorded successfully",
+        )
+    except Exception as e:
+        logger.error(
+            f"Failed to record label for prediction {input_data.prediction_id}: {e}",
+            exc_info=True,
+        )
+        raise HTTPException(status_code=500, detail="Failed to record label")
 
 
 @app.get("/monitoring/stats")

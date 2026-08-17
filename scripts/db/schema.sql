@@ -1,18 +1,50 @@
 -- ============================================================
--- Phase 5: Production-Grade Storage Schema (CORRECTED)
+-- Phase 4: Production-Grade Hardened Storage Schema (Non-destructive)
 -- ============================================================
 
-DROP TABLE IF EXISTS model_versions CASCADE;
-DROP TABLE IF EXISTS retraining_decisions CASCADE;
-DROP TABLE IF EXISTS monitoring_metrics CASCADE;
+-- ============================================================
+-- 1. Predictions Storage
+-- ============================================================
+CREATE TABLE IF NOT EXISTS predictions (
+    prediction_id TEXT PRIMARY KEY,
+    timestamp TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    model_version TEXT NOT NULL,
+    prediction INT NOT NULL CHECK (prediction IN (0, 1)),
+    probability FLOAT NOT NULL CHECK (probability >= 0.0 AND probability <= 1.0),
+    application_date TIMESTAMP WITH TIME ZONE,
+    features JSONB NOT NULL,
+    request_id TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_predictions_timestamp ON predictions(timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_predictions_model_version ON predictions(model_version);
+CREATE INDEX IF NOT EXISTS idx_predictions_application_date ON predictions(application_date DESC);
+CREATE INDEX IF NOT EXISTS idx_predictions_request_id ON predictions(request_id);
+
+COMMENT ON TABLE predictions IS 'Durable store of all inference requests and feature vectors for drift analysis & replay.';
 
 -- ============================================================
--- A. Time-Series Monitoring Metrics
+-- 2. Ground Truth Labels Storage
 -- ============================================================
--- ✅ FIXED: Removed num_labeled, coverage_pct (asynchronous concern)
--- ✅ FIXED: Renamed drift_share → feature_drift_ratio (clarity)
+CREATE TABLE IF NOT EXISTS labels (
+    prediction_id TEXT PRIMARY KEY REFERENCES predictions(prediction_id) ON DELETE CASCADE,
+    true_label INT NOT NULL CHECK (true_label IN (0, 1)),
+    label_timestamp TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    label_source TEXT DEFAULT 'manual',
+    days_delayed INT,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
 
-CREATE TABLE monitoring_metrics (
+CREATE INDEX IF NOT EXISTS idx_labels_timestamp ON labels(label_timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_labels_true_label ON labels(true_label);
+
+COMMENT ON TABLE labels IS 'Ground truth labels linked to prediction_id for model evaluation and retraining gates.';
+
+-- ============================================================
+-- 3. Time-Series Monitoring Metrics
+-- ============================================================
+CREATE TABLE IF NOT EXISTS monitoring_metrics (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     timestamp TIMESTAMP NOT NULL,
 
@@ -28,48 +60,40 @@ CREATE TABLE monitoring_metrics (
 
     -- Drift summary (dataset-level ONLY)
     dataset_drift_detected BOOLEAN DEFAULT FALSE,
-    feature_drift_ratio FLOAT DEFAULT 0.0,  -- ✅ RENAMED (was drift_share)
+    feature_drift_ratio FLOAT DEFAULT 0.0,
     num_drifted_features INT DEFAULT 0,
 
-    -- References to artifacts (NOT blobs)
+    -- References to artifacts
     drift_summary_ref TEXT,
 
     -- Metadata
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
-    -- Constraints
     CONSTRAINT monitoring_metrics_timestamp_unique UNIQUE (timestamp)
 );
 
-CREATE INDEX idx_monitoring_metrics_timestamp ON monitoring_metrics(timestamp DESC);
-CREATE INDEX idx_monitoring_metrics_drift ON monitoring_metrics(dataset_drift_detected, feature_drift_ratio);
-
-COMMENT ON COLUMN monitoring_metrics.feature_drift_ratio IS 'Fraction of features that drifted (e.g., 0.5 = 50% of features)';
-COMMENT ON TABLE monitoring_metrics IS 'One row per monitoring run. Answers: Is system behavior changing?';
+CREATE INDEX IF NOT EXISTS idx_monitoring_metrics_timestamp ON monitoring_metrics(timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_monitoring_metrics_drift ON monitoring_metrics(dataset_drift_detected, feature_drift_ratio);
 
 -- ============================================================
--- C. Retraining & Decision Log
+-- 4. Retraining & Decision Log
 -- ============================================================
--- ✅ FIXED: Removed gate_results JSONB (store in files)
--- ✅ FIXED: Changed trigger_reason enum (removed performance_degradation)
--- ✅ ADDED: labeled_samples, coverage_pct (belong here, not monitoring)
-
-CREATE TABLE retraining_decisions (
+CREATE TABLE IF NOT EXISTS retraining_decisions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     timestamp TIMESTAMP NOT NULL,
 
     -- Trigger context
     trigger_reason TEXT NOT NULL CHECK (
-        trigger_reason IN ('scheduled', 'manual', 'drift_alert')  -- ✅ FIXED
+        trigger_reason IN ('scheduled', 'manual', 'drift_alert')
     ),
 
     -- Drift context (snapshot at decision time)
-    feature_drift_ratio FLOAT,  -- ✅ RENAMED (was drift_share)
+    feature_drift_ratio FLOAT,
     num_drifted_features INT,
     dataset_drift_detected BOOLEAN,
     drifted_features TEXT[],
 
-    -- Data context (✅ MOVED HERE from monitoring_metrics)
+    -- Data context
     labeled_samples INT,
     coverage_pct FLOAT,
 
@@ -78,9 +102,9 @@ CREATE TABLE retraining_decisions (
         action IN ('train', 'skip', 'promote', 'reject')
     ),
 
-    -- Gate details (minimal, human-readable)
+    -- Gate details
     failed_gate TEXT,
-    reason TEXT,  -- ✅ gate_results JSONB removed, only human reason
+    reason TEXT,
 
     -- Model context
     shadow_model_version INT,
@@ -92,7 +116,7 @@ CREATE TABLE retraining_decisions (
 
     -- References to artifacts
     drift_summary_ref TEXT,
-    evaluation_report_ref TEXT,  -- ✅ Detailed gate results stored here
+    evaluation_report_ref TEXT,
 
     -- Metadata
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -100,20 +124,14 @@ CREATE TABLE retraining_decisions (
     CONSTRAINT retraining_decisions_timestamp_unique UNIQUE (timestamp)
 );
 
-CREATE INDEX idx_retraining_decisions_action ON retraining_decisions(action);
-CREATE INDEX idx_retraining_decisions_trigger ON retraining_decisions(trigger_reason);
-CREATE INDEX idx_retraining_decisions_drift ON retraining_decisions(dataset_drift_detected);
-
-COMMENT ON TABLE retraining_decisions IS 'Audit trail. Answers: Why did we (or did not) take action?';
-COMMENT ON COLUMN retraining_decisions.labeled_samples IS 'Number of labeled predictions at decision time';
-COMMENT ON COLUMN retraining_decisions.coverage_pct IS 'Label coverage at decision time (asynchronous from monitoring)';
+CREATE INDEX IF NOT EXISTS idx_retraining_decisions_action ON retraining_decisions(action);
+CREATE INDEX IF NOT EXISTS idx_retraining_decisions_trigger ON retraining_decisions(trigger_reason);
+CREATE INDEX IF NOT EXISTS idx_retraining_decisions_drift ON retraining_decisions(dataset_drift_detected);
 
 -- ============================================================
--- D. Model Lineage & Governance
+-- 5. Model Lineage & Governance
 -- ============================================================
--- ✅ ADDED: Partial unique index (only ONE model in Production)
-
-CREATE TABLE model_versions (
+CREATE TABLE IF NOT EXISTS model_versions (
     model_name TEXT NOT NULL,
     version INT NOT NULL,
     stage TEXT NOT NULL CHECK (
@@ -127,7 +145,7 @@ CREATE TABLE model_versions (
 
     -- Training context
     trigger_reason TEXT,
-    training_run_id TEXT,  -- MLflow run ID
+    training_run_id TEXT,
 
     -- Performance snapshot
     f1_score FLOAT,
@@ -135,7 +153,7 @@ CREATE TABLE model_versions (
     num_samples INT,
 
     -- Drift context at training time
-    feature_drift_ratio_at_training FLOAT,  -- ✅ RENAMED
+    feature_drift_ratio_at_training FLOAT,
 
     -- Decision reference
     decision_id UUID REFERENCES retraining_decisions(id),
@@ -147,25 +165,39 @@ CREATE TABLE model_versions (
     PRIMARY KEY (model_name, version)
 );
 
-CREATE INDEX idx_model_versions_stage ON model_versions(model_name, stage);
-CREATE INDEX idx_model_versions_promoted ON model_versions(promoted_at DESC);
+CREATE INDEX IF NOT EXISTS idx_model_versions_stage ON model_versions(model_name, stage);
+CREATE INDEX IF NOT EXISTS idx_model_versions_promoted ON model_versions(promoted_at DESC);
 
--- ✅ CRITICAL CONSTRAINT: Only ONE model can be in Production
-CREATE UNIQUE INDEX one_production_model
+-- Governance invariant: exactly one production model per model_name
+CREATE UNIQUE INDEX IF NOT EXISTS one_production_model
 ON model_versions(model_name)
 WHERE stage = 'Production';
 
-COMMENT ON INDEX one_production_model IS 'Governance invariant: exactly one production model per model_name';
-
 -- ============================================================
--- Views for Common Queries
+-- 6. Views for Joins and Reports
 -- ============================================================
+CREATE OR REPLACE VIEW v_labeled_predictions AS
+SELECT
+    p.prediction_id,
+    p.timestamp AS prediction_timestamp,
+    p.model_version,
+    p.prediction,
+    p.probability,
+    p.application_date,
+    p.features,
+    p.request_id,
+    l.true_label,
+    l.label_timestamp,
+    l.label_source,
+    l.days_delayed
+FROM predictions p
+INNER JOIN labels l ON p.prediction_id = l.prediction_id;
 
 CREATE OR REPLACE VIEW v_recent_monitoring AS
 SELECT
     timestamp,
     num_predictions,
-    feature_drift_ratio,  -- ✅ RENAMED
+    feature_drift_ratio,
     dataset_drift_detected,
     positive_rate,
     entropy
@@ -178,9 +210,9 @@ SELECT
     d.timestamp,
     d.action,
     d.trigger_reason,
-    d.feature_drift_ratio,  -- ✅ RENAMED
-    d.labeled_samples,  -- ✅ Now in this table
-    d.coverage_pct,     -- ✅ Now in this table
+    d.feature_drift_ratio,
+    d.labeled_samples,
+    d.coverage_pct,
     d.failed_gate,
     d.reason,
     d.shadow_model_version,
@@ -196,25 +228,8 @@ SELECT
     m.trained_at,
     m.promoted_at,
     m.f1_score,
-    d.feature_drift_ratio AS drift_at_training,  -- ✅ RENAMED
+    d.feature_drift_ratio AS drift_at_training,
     d.action
 FROM model_versions m
 LEFT JOIN retraining_decisions d ON m.decision_id = d.id
 ORDER BY m.version DESC;
-
--- ============================================================
--- Retention Policy Function
--- ============================================================
-
-CREATE OR REPLACE FUNCTION cleanup_old_monitoring_metrics()
-RETURNS void AS $$
-BEGIN
-    -- Keep only last 90 days of monitoring metrics
-    DELETE FROM monitoring_metrics
-    WHERE timestamp < NOW() - INTERVAL '90 days';
-
-    RAISE NOTICE 'Cleaned up monitoring metrics older than 90 days';
-END;
-$$ LANGUAGE plpgsql;
-
-COMMENT ON FUNCTION cleanup_old_monitoring_metrics IS 'Run monthly: SELECT cleanup_old_monitoring_metrics();';
