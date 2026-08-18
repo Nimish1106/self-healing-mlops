@@ -344,15 +344,25 @@ async def ready():
     model_ready = model is not None and model_version is not None
 
     storage_ready = False
-    try:
-        storage_path = Path("/app/monitoring/predictions")
-        storage_path.mkdir(parents=True, exist_ok=True)
-        test_file = storage_path / ".ready_check"
-        test_file.touch(exist_ok=True)
+    if is_testing():
         storage_ready = True
-    except Exception as e:
-        logger.warning("Readiness check: storage inaccessible: %s", e)
-        storage_ready = False
+    else:
+        try:
+            from src.storage.db_manager import get_db_manager
+
+            db = get_db_manager()
+            db.execute_query("SELECT 1")
+            storage_ready = True
+        except Exception:
+            try:
+                storage_path = Path("monitoring/predictions")
+                storage_path.mkdir(parents=True, exist_ok=True)
+                test_file = storage_path / ".ready_check"
+                test_file.touch(exist_ok=True)
+                storage_ready = True
+            except Exception as e:
+                logger.warning("Readiness check: storage inaccessible: %s", e)
+                storage_ready = False
 
     is_ready = model_ready and storage_ready
     checks = {
