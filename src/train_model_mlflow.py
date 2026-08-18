@@ -133,7 +133,9 @@ def train_and_log(
         ).sort_values("importance", ascending=False)
 
         # Save as artifact
-        importance_file = "/tmp/feature_importance.csv"
+        import tempfile
+
+        importance_file = os.path.join(tempfile.gettempdir(), "feature_importance.csv")
         feature_importance.to_csv(importance_file, index=False)
         mlflow.log_artifact(importance_file, "feature_importance")
 
@@ -198,7 +200,12 @@ def main():
     print("=" * 60)
 
     # --- LOAD DATA ---
-    data_path = "/app/data/cs-training.csv"
+    data_path = os.getenv(
+        "DATA_PATH",
+        "/app/data/cs-training.csv"
+        if os.path.exists("/app/data/cs-training.csv")
+        else "data/cs-training.csv",
+    )
     print(f"\n📁 Loading data from: {data_path}")
 
     df = pd.read_csv(data_path)

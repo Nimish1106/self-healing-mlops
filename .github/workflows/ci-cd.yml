@@ -199,15 +199,50 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Deploy Staging Stack (Docker Compose)
-        env:
-          POSTGRES_USER: airflow
-          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD || 'staging_pass_123' }}
-          MLFLOW_TRACKING_URI: http://mlflow:5000
+      - name: Create Staging .env Configuration
         run: |
-          docker compose up -d --build postgres-mlops mlflow api
-          echo "Waiting for services to become healthy..."
-          sleep 15
+          cat << 'EOF' > .env
+          POSTGRES_HOST=postgres-mlops
+          POSTGRES_PORT=5432
+          MLOPS_DB_NAME=mlops
+          POSTGRES_USER=mlops
+          POSTGRES_PASSWORD=staging_mlops_pass_123
+          AIRFLOW_DB_HOST=postgres
+          AIRFLOW_DB_PORT=5432
+          AIRFLOW_DB_NAME=airflow
+          AIRFLOW_DB_USER=airflow
+          AIRFLOW_DB_PASSWORD=staging_airflow_pass_123
+          AIRFLOW_USERNAME=admin
+          AIRFLOW_PASSWORD=admin
+          AIRFLOW_EMAIL=admin@example.com
+          AIRFLOW_WEBSERVER_HOST_PORT=8081
+          AIRFLOW_SECRET_KEY=k9Yp3n7sQ8tBv2LxZ4mR0uF1wE6hC5aG
+          AIRFLOW_FERNET_KEY=ZmDfcTF7_60GrrY167zsiPd67pEvs0aGOv2oasOM1Pg=
+          MLFLOW_TRACKING_URI=http://mlflow:5000
+          MLFLOW_USERNAME=admin
+          MLFLOW_PASSWORD=admin
+          PGADMIN_EMAIL=admin@admin.com
+          PGADMIN_PASSWORD=admin
+          MONITORING_INTERVAL=300
+          MONITORING_LOOKBACK=24
+          EOF
+
+      - name: Start Staging Database and MLflow Services
+        run: |
+          docker compose up -d --build postgres-mlops mlflow
+          echo "Waiting for PostgreSQL and MLflow services to be healthy..."
+          timeout 60 bash -c 'until docker compose ps | grep -E "mlops-postgres.*healthy" && docker compose ps | grep -E "mlflow-server.*healthy"; do sleep 3; done'
+
+      - name: Bootstrap Database Schema & Staging Baseline Model
+        run: |
+          docker compose run --rm --no-deps -e MLFLOW_TRACKING_URI=http://mlflow:5000 -e POSTGRES_HOST=postgres-mlops -e POSTGRES_USER=mlops -e POSTGRES_PASSWORD=staging_mlops_pass_123 -e MLOPS_DB_NAME=mlops api python scripts/db/init_database.py
+          docker compose run --rm --no-deps -e MLFLOW_TRACKING_URI=http://mlflow:5000 api python -m src.train_model_mlflow
+
+      - name: Start Staging API Service
+        run: |
+          docker compose up -d --build api
+          echo "Waiting for API service to be healthy..."
+          timeout 60 bash -c 'until docker compose ps | grep -E "mlops-api.*healthy"; do sleep 3; done'
 
       - name: Execute Liveness Health Check (GET /health)
         run: |
